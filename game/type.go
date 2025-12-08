@@ -4,5 +4,5 @@ package game
 //只要实现了 Name() 和 TakeDamage()的都是attackable的
 type Attackable interface {
 	GetName() string
-	TakeDamage(dmg int)
+	TakeDamage(dmg int) string //接下来吧Printf改成Sprintf（返回拼接好的格式化字符串）
 }

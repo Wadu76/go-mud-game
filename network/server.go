@@ -2,24 +2,26 @@ package network
 
 import (
 	"fmt"
+	"mud-server/game"
 	"net"
+	"strings"
 )
 
-//StartServer 启动TCP服务器
+// StartServer 启动TCP服务器
 func StartServer() {
 	//1监听端口 8888
-	listener, err := net.Listen("tcp", ":8888")  //err是错误信息， listener是监听对象
+	listener, err := net.Listen("tcp", ":8888") //err是错误信息， listener是监听对象
 	if err != nil {
 		fmt.Println("启动服务器失败：", err)
-		return 
+		return
 	}
 	//defer确保函数退出前关闭listener
-	defer listener.Close() 
+	defer listener.Close()
 
 	fmt.Println(" 🚀游戏服务已启动，正在监听8888端口...")
 
-	//2等待客户端连接，无限循环
-	for{
+	//2等待客户端连接，无限循环a
+	for {
 		conn, err := listener.Accept()
 		if err != nil {
 			fmt.Println("连接建立失败:", err)
@@ -32,10 +34,17 @@ func StartServer() {
 	}
 }
 
-
-//处理单个玩家的连接
+// 处理单个玩家的连接
 func handleConnection(conn net.Conn) {
-	defer conn.Close()	//玩家断开时关闭连接
+	defer conn.Close() //玩家断开时关闭连接
+
+	fmt.Println("新玩家接入，正在初始化游戏数据...")
+
+	//初始化游戏数据,以后会存入全局
+	hero := game.NewPlayer("瓦度", 1, 100, 100)
+	monster := game.NewMonster("史莱姆王", 50, 50, 20)
+
+	conn.Write([]byte("===== 欢迎来到GO MUD 在线测试版 =====\n 请输入 attack, heal, status\n>"))
 
 	buf := make([]byte, 1024) //缓冲区
 	for {
@@ -45,12 +54,50 @@ func handleConnection(conn net.Conn) {
 			return
 		}
 
-		//处理消息 把收到的数据转成字符串
-		msg := string(buf[:n])
-		fmt.Printf("收到信息: %s\n", msg)
+		//去掉空格和换行
+		input := string(buf[:n])
+		command := strings.TrimSpace(input)
 
-		//给玩家回复信息
-		conn.Write([]byte("服务器已收到你的消息:" + msg))
+		//游戏逻辑路由
+		var response string //f发回给客户端的话
+
+		switch command {
+		case "attack":
+			log1 := hero.Attack(monster)
+			response = log1 + "\n"
+
+			if monster.HP > 0 {
+				log := monster.Attack(hero)
+				response += log + "\n"
+			} else {
+				response += fmt.Sprintf("成功击败了史莱姆王！获得 %d 经验\n", monster.Exp)
+			}
+
+		case "heal":
+			log1 := hero.Heal()
+			log2 := monster.Attack(hero)
+			response = log1 + "\n" + log2 + "\n"
+
+		case "status":
+			response = fmt.Sprintf("状态：[%s] HP: %d/%d VS [%s] HP: %d/%d", hero.Name, hero.HP, hero.MaxHP, monster.Name, monster.HP, monster.MaxHP)
+
+		case "exit":
+			conn.Write([]byte("加纳！\n"))
+			return
+
+		default:
+			response = "无效指令，请重新输入\n"
+		}
+
+		if hero.HP <= 0 {
+			response += "/(ㄒoㄒ)/~~ 胜败乃兵家常事，重新连接复活再来吧！\n"
+			conn.Write([]byte(response))
+			return //踢走输掉的玩家
+		}
+		//最终战斗信息
+		response += ">"
+		conn.Write([]byte(response))
+
 	}
 
 }

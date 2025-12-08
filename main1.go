@@ -39,7 +39,7 @@ func main1() {
 			}
 
 		case "heal":
-			hero.Heal(hero)
+			//hero.Heal(hero)
 			slime.Attack(hero)
 		case "status":
 			fmt.Printf(" 状态: [%s] HP: %d/%d\n", hero.Name, hero.HP, hero.MaxHP)
