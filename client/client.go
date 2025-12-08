@@ -12,36 +12,39 @@ func main() {
 	conn, err := net.Dial("tcp", "127.0.0.1:8888")
 	if err != nil {
 		fmt.Println("连接失败", err)
-		return 
+		return
 	}
 
 	defer conn.Close()
-	fmt.Println("连接成功！请输入消息（输入exit退出）：")
+	go readFromServer(conn)
 
 	// 读取输入
 	inputReader := bufio.NewReader(os.Stdin) //从控制台读取输入
 
 	for {
 		//读取用户输入
-		fmt.Print(">")
+		//fmt.Print(">") ui混乱原因
 		input, _ := inputReader.ReadString('\n')
-		
+
 		//发送到服务器
 		_, err := conn.Write([]byte(input))
 		if err != nil {
-		    fmt.Println("发送失败", err)
+			fmt.Println("发送失败", err)
 			break
 		}
 
-		//接收服务器返回的消息
-		buf := make([]byte, 1024)
+	}
+}
+
+func readFromServer(conn net.Conn) {
+	buf := make([]byte, 1024)
+	for {
 		n, err := conn.Read(buf)
 		if err != nil {
-			fmt.Println("服务器断开连接")
-			break
+			fmt.Println("\n服务器断开连接")
+			os.Exit(0)
 		}
 
-		fmt.Println("服务器返回的消息：", string(buf[:n]))
-		
+		fmt.Print(string(buf[:n]))
 	}
 }

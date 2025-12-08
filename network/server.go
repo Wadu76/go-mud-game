@@ -56,8 +56,13 @@ func handleConnection(conn net.Conn) {
 
 		//去掉空格和换行
 		input := string(buf[:n])
-		command := strings.TrimSpace(input)
+		command := strings.TrimSpace(strings.ToLower(input))
 
+		//处理空指令
+		if command == "" {
+			conn.Write([]byte("> "))
+			continue
+		}
 		//游戏逻辑路由
 		var response string //f发回给客户端的话
 
@@ -86,7 +91,7 @@ func handleConnection(conn net.Conn) {
 			return
 
 		default:
-			response = "无效指令，请重新输入\n"
+			response = fmt.Sprintf("未知指令 '%s'，请输入 attack, heal, status\n", command)
 		}
 
 		if hero.HP <= 0 {
