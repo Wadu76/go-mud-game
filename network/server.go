@@ -71,7 +71,8 @@ func handleConnection(conn net.Conn) {
 
 		//智能切割：把 "say hello world" 切成 ["say", "hello", "world"]
 		//Fields 是一个核心方法，它的作用是将字符串按照指定的分隔符进行切割，返回一个字符串切片。
-		parts := strings.Fields(input)
+		//parts := strings.Fields(input) input没有清除空格，后面在verb种parts[0]若空（比如输入\n) 数组会越界报错！
+		parts := strings.Fields(line)
 
 		verb := strings.ToLower(parts[0])
 
@@ -111,6 +112,9 @@ func handleConnection(conn net.Conn) {
 			msg := fmt.Sprintf("[%s]说 %s\n>", conn.RemoteAddr(), content)
 			GlobalWorld.MessageChannel <- msg
 			response = ""
+
+		case "exit":
+			conn.Write([]byte("Bye~\n"))
 
 		default:
 			response = fmt.Sprintf("未知指令 '%s'，请输入 attack, heal, status\n", verb)
