@@ -9,6 +9,7 @@ import (
 
 // StartServer 启动TCP服务器
 func StartServer() {
+	InitWorld()
 	//1监听端口 8888
 	listener, err := net.Listen("tcp", ":8888") //err是错误信息， listener是监听对象
 	if err != nil {
@@ -36,8 +37,12 @@ func StartServer() {
 
 // 处理单个玩家的连接
 func handleConnection(conn net.Conn) {
-	defer conn.Close() //玩家断开时关闭连接
-
+	GlobalWorld.AddPlayer(conn)
+	//defer conn.Close() //玩家断开时关闭连接
+	defer func() {
+		GlobalWorld.RemovePlayer(conn)
+		conn.Close()
+	}()
 	fmt.Println("新玩家接入，正在初始化游戏数据...")
 
 	//初始化游戏数据,以后会存入全局
@@ -45,7 +50,7 @@ func handleConnection(conn net.Conn) {
 	monster := game.NewMonster("史莱姆王", 50, 50, 20)
 
 	conn.Write([]byte("===== 欢迎来到GO MUD 在线测试版 =====\n 请输入 attack, heal, status\n>"))
-
+	//Write 是一个核心方法，它的作用是将数据写入到一个“目标”中。 可以是文件、网络连接、内存缓冲区、标准输出（你的终端屏幕）等等。
 	buf := make([]byte, 1024) //缓冲区
 	for {
 		n, err := conn.Read(buf)
@@ -56,17 +61,24 @@ func handleConnection(conn net.Conn) {
 
 		//去掉空格和换行
 		input := string(buf[:n])
-		command := strings.TrimSpace(strings.ToLower(input))
+		line := strings.TrimSpace(input)
 
 		//处理空指令
-		if command == "" {
+		if line == "" {
 			conn.Write([]byte("> "))
 			continue
 		}
+
+		//智能切割：把 "say hello world" 切成 ["say", "hello", "world"]
+		//Fields 是一个核心方法，它的作用是将字符串按照指定的分隔符进行切割，返回一个字符串切片。
+		parts := strings.Fields(input)
+
+		verb := strings.ToLower(parts[0])
+
 		//游戏逻辑路由
 		var response string //f发回给客户端的话
 
-		switch command {
+		switch verb {
 		case "attack":
 			log1 := hero.Attack(monster)
 			response = log1 + "\n"
@@ -86,12 +98,22 @@ func handleConnection(conn net.Conn) {
 		case "status":
 			response = fmt.Sprintf("状态：[%s] HP: %d/%d VS [%s] HP: %d/%d", hero.Name, hero.HP, hero.MaxHP, monster.Name, monster.HP, monster.MaxHP)
 
-		case "exit":
-			conn.Write([]byte("加纳！\n"))
-			return
+		case "say":
+			if len(parts) < 2 {
+				response = "格式错误，say <内容>\n"
+				break
+			}
+
+			content := line[len(parts[0]):]
+
+			content = strings.TrimSpace(content)
+
+			msg := fmt.Sprintf("[%s]说 %s\n>", conn.RemoteAddr(), content)
+			GlobalWorld.MessageChannel <- msg
+			response = ""
 
 		default:
-			response = fmt.Sprintf("未知指令 '%s'，请输入 attack, heal, status\n", command)
+			response = fmt.Sprintf("未知指令 '%s'，请输入 attack, heal, status\n", verb)
 		}
 
 		if hero.HP <= 0 {
