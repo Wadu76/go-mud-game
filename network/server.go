@@ -1,6 +1,7 @@
 package network
 
 import (
+	//"bufio"
 	"fmt"
 	"mud-server/game"
 	"net"
@@ -37,21 +38,41 @@ func StartServer() {
 
 // 处理单个玩家的连接
 func handleConnection(conn net.Conn) {
+
+	conn.Write([]byte("欢迎来到瓦度世界！请输入你的名字：\n"))
+	buf := make([]byte, 1024)
+	n, err := conn.Read(buf) //n是读取到的字节数
+	if err != nil {
+		return
+	}
+
+	//起名字
+	playername := string(buf[:n]) //buf[0 - n-1]
+	//去掉名字中的空格 \r\n  不然输入名字的时候你的名字将会是 名字 \r\n，啥都不输入也会叫\r\n
+	playername = strings.TrimSpace(playername)
+
+	if playername == "" {
+		playername = "不起名字（香菜版）"
+	}
+
+	//初始化游戏数据,以后会存入全局
+	hero := game.NewPlayer(playername, 1, 100, 100)
+	monster := game.NewMonster("史莱姆王", 50, 50, 20)
+
+	//加入世界
 	GlobalWorld.AddPlayer(conn)
 	//defer conn.Close() //玩家断开时关闭连接
 	defer func() {
 		GlobalWorld.RemovePlayer(conn)
 		conn.Close()
 	}()
+
 	fmt.Println("新玩家接入，正在初始化游戏数据...")
+	GlobalWorld.MessageChannel <- fmt.Sprintf("欢迎 勇士 [%s] 加入游戏！\n", playername)
 
-	//初始化游戏数据,以后会存入全局
-	hero := game.NewPlayer("瓦度", 1, 100, 100)
-	monster := game.NewMonster("史莱姆王", 50, 50, 20)
-
-	conn.Write([]byte("===== 欢迎来到GO MUD 在线测试版 =====\n 请输入 attack, heal, status\n>"))
+	conn.Write([]byte("===== 欢迎来到GO MUD 在线测试版 =====\n 请输入 attack, heal, status, say, exit\n>"))
 	//Write 是一个核心方法，它的作用是将数据写入到一个“目标”中。 可以是文件、网络连接、内存缓冲区、标准输出（你的终端屏幕）等等。
-	buf := make([]byte, 1024) //缓冲区
+	buf = make([]byte, 1024) //缓冲区
 	for {
 		n, err := conn.Read(buf)
 		if err != nil {
@@ -109,7 +130,7 @@ func handleConnection(conn net.Conn) {
 
 			content = strings.TrimSpace(content)
 
-			msg := fmt.Sprintf("[%s]说 %s\n>", conn.RemoteAddr(), content)
+			msg := fmt.Sprintf("[%s]说 %s\n>", hero.Name, content)
 			GlobalWorld.MessageChannel <- msg
 			response = ""
 
