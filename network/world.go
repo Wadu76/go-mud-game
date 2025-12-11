@@ -3,6 +3,7 @@ package network
 //管理所有在线玩家的连接，时刻听着广播通道
 import (
 	"fmt"
+	"mud-server/game"
 	"net"
 	"sync"
 )
@@ -17,6 +18,9 @@ type World struct {
 
 	//广播通道
 	MessageChannel chan string
+
+	//世界内共用的怪物
+	Boss *game.Monster
 }
 
 // 全局变量，整个游戏就只有一个世界
@@ -27,6 +31,8 @@ func InitWorld() {
 		OnlinePlayers:  make(map[string]net.Conn),
 		MessageChannel: make(chan string, 10), //缓冲区大小10
 
+		//boss赋值为Newmonster的返回值，即Monster这个结构体
+		Boss: game.NewMonster("史莱姆王", 100, 100, 50 ),
 	}
 
 	//启动独立的Goroutine，负责分发广播

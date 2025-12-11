@@ -32,7 +32,7 @@ func StartServer() {
 		fmt.Println(" 有新玩家连接:", conn.RemoteAddr())
 
 		//3开启一个Goroutine处理新玩家
-		go handleConnection(conn)
+		go handleConnection(conn) //将handleConnection 即 放到另一个协程中处理
 	}
 }
 
@@ -57,7 +57,7 @@ func handleConnection(conn net.Conn) {
 
 	//初始化游戏数据,以后会存入全局
 	hero := game.NewPlayer(playername, 1, 100, 100)
-	monster := game.NewMonster("史莱姆王", 50, 50, 20)
+	//monster := game.NewMonster("史莱姆王", 50, 50, 20)
 
 	//加入世界
 	GlobalWorld.AddPlayer(conn)
@@ -100,25 +100,38 @@ func handleConnection(conn net.Conn) {
 		//游戏逻辑路由
 		var response string //f发回给客户端的话
 
+		boss := GlobalWorld.Boss
+
 		switch verb {
 		case "attack":
-			log1 := hero.Attack(monster)
-			response = log1 + "\n"
+			log1 := hero.Attack(boss)
 
-			if monster.HP > 0 {
-				log := monster.Attack(hero)
+			//广播给所有玩家，替换原本的response
+			boradcastMsg := fmt.Sprintf("%s\n", log1)
+			GlobalWorld.MessageChannel <- boradcastMsg
+			//response = log1 + "\n" 这是给单独玩家的response
+
+			if boss.HP > 0 {
+				//boss反击
+				log := boss.Attack(hero)
+
 				response += log + "\n"
 			} else {
-				response += fmt.Sprintf("成功击败了史莱姆王！获得 %d 经验\n", monster.Exp)
+				//boss被击败，肯定要广播
+				GlobalWorld.MessageChannel <- fmt.Sprintf("勇士 [%s]成功击败了史莱姆王！获得 %d 经验\n", hero.Name, boss.Exp)
+				//response += fmt.Sprintf("成功击败了史莱姆王！获得 %d 经验\n", boss.Exp)
 			}
 
 		case "heal":
 			log1 := hero.Heal()
-			log2 := monster.Attack(hero)
+			//治疗，有破绽就被攻击了，目前治疗只能治疗自己。
+			log2 := boss.Attack(hero)
+
 			response = log1 + "\n" + log2 + "\n"
 
 		case "status":
-			response = fmt.Sprintf("状态：[%s] HP: %d/%d VS [%s] HP: %d/%d", hero.Name, hero.HP, hero.MaxHP, monster.Name, monster.HP, monster.MaxHP)
+			//太宣布事故Boss全局的状态血量
+			response = fmt.Sprintf("状态：[%s] HP: %d/%d VS [%s] HP: %d/%d", hero.Name, hero.HP, hero.MaxHP, boss.Name, boss.HP, boss.MaxHP)
 
 		case "say":
 			if len(parts) < 2 {
