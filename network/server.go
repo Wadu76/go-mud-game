@@ -155,6 +155,8 @@ func handleConnection(conn net.Conn) {
 				break
 			}
 			direction := strings.ToLower(parts[1]) //提取第二个参数 即方向并将其改为小写
+			//Move方法接受的是north/south/east/west 而不是中文，起始把direction改成中文传入Move中导致一直move不了
+			success, info := hero.Move(direction)
 			switch direction {
 			case "north":
 				direction = "北"
@@ -165,7 +167,7 @@ func handleConnection(conn net.Conn) {
 			case "west":
 				direction = "西"
 			}
-			success, info := hero.Move(direction)
+
 			if success {
 				response = fmt.Sprintf("你将向 %s ,进入 %s...\n ", direction, info)
 			} else {
