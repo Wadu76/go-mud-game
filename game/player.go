@@ -9,6 +9,9 @@ type Player struct {
 	Level int    //玩家等级
 	HP    int    //玩家当前血量
 	MaxHP int    //玩家最大血量
+
+	//玩家所在房间 （类似个gps）
+	CurrentRoom *Room
 }
 
 //2定义玩家方法
@@ -48,5 +51,23 @@ func NewPlayer(name string,level int, hp int, maxHp int) *Player {
 		Level: level,
 		HP:    hp,
 		MaxHP: maxHp,
+		CurrentRoom: nil, //初始化时暂时为空，后面为World分配
 	}
+}
+
+//移动逻辑
+func (p *Player) Move(direction string) (bool, string) {
+	if p.CurrentRoom == nil {
+		return false, "召唤师，你还在虚空中..."
+	}
+
+	//根据方向获取下一个房间
+	nextRoom, ok := p.CurrentRoom.Exits[direction]
+	if !ok {
+		return false, "那边没有路！"
+	}
+
+	//移动
+	p.CurrentRoom = nextRoom
+	return true, p.CurrentRoom.GetInfo()
 }

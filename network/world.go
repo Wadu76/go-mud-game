@@ -21,18 +21,43 @@ type World struct {
 
 	//世界内共用的怪物
 	Boss *game.Monster
+
+	//出生点房间，玩家上线会自动进入
+	StartRoom *game.Room
 }
 
 // 全局变量，整个游戏就只有一个世界
 var GlobalWorld *World
 
 func InitWorld() {
+
+	//创建房间
+	town := game.NewRoom("新手村广场", "这里是梦开始的地方，十分安全，可以在这里接冒险者工会的任务。")
+	forest := game.NewRoom("黑暗森林", "在广场旁边的森林，这里树木丛生，传来着各种奇奇怪怪的声音...")
+	cave := game.NewRoom("恶龙巢穴", "深不见底的洞穴，这里甚至能闻到硫磺味。")
+
+	fmt.Println("房间创建完成，开始连接房间...") // 添加调试信息
+
+	//连接各个房间
+	//广场北边是森林
+	town.Link("north", forest)
+	//森林南边是广场
+	forest.Link("south", town)
+
+	//森林东边是洞穴
+	forest.Link("east", cave)
+	//洞穴西边是森林
+	cave.Link("west", forest)
+
 	GlobalWorld = &World{
 		OnlinePlayers:  make(map[string]net.Conn),
 		MessageChannel: make(chan string, 10), //缓冲区大小10
 
 		//boss赋值为Newmonster的返回值，即Monster这个结构体
-		Boss: game.NewMonster("史莱姆王", 100, 100, 50 ),
+		Boss: game.NewMonster("史莱姆王", 100, 100, 50),
+
+		//在此处初始化出生点房间
+		StartRoom: town,
 	}
 
 	//启动独立的Goroutine，负责分发广播

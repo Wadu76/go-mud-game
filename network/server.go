@@ -55,9 +55,11 @@ func handleConnection(conn net.Conn) {
 		playername = "不起名字（香菜版）"
 	}
 
-	//初始化游戏数据,以后会存入全局
+	//初始化玩家游戏数据
 	hero := game.NewPlayer(playername, 1, 100, 100)
 	//monster := game.NewMonster("史莱姆王", 50, 50, 20)
+	//此处正式把玩家丢到出生点
+	hero.CurrentRoom = GlobalWorld.StartRoom
 
 	//加入世界
 	GlobalWorld.AddPlayer(conn)
@@ -146,6 +148,38 @@ func handleConnection(conn net.Conn) {
 			msg := fmt.Sprintf("[%s]说 %s\n>", hero.Name, content)
 			GlobalWorld.MessageChannel <- msg
 			response = ""
+
+		case "go":
+			if len(parts) < 2 {
+				response = "要去哪？请输入 go north/south/east/west\n"
+				break
+			}
+			direction := strings.ToLower(parts[1]) //提取第二个参数 即方向并将其改为小写
+			switch direction {
+			case "north":
+				direction = "北"
+			case "south":
+				direction = "南"
+			case "east":
+				direction = "东"
+			case "west":
+				direction = "西"
+			}
+			success, info := hero.Move(direction)
+			if success {
+				response = fmt.Sprintf("你将向 %s ,进入 %s...\n ", direction, info)
+			} else {
+				//如果移动失败，则返回失败信息,在move里已经处理了走不通的报错逻辑
+				response = info + "\n"
+			}
+
+		case "look":
+			if hero.CurrentRoom == nil {
+				response = hero.CurrentRoom.GetInfo() + "\n" //getinfo 里已经处理了空房间的情况
+			} else {
+				response = hero.CurrentRoom.GetInfo() + "\n"
+			}
+			//其实不需要，因为已经处理了空房间的情况，但为方便阅读就这样写了
 
 		case "exit":
 			conn.Write([]byte("Bye~\n"))
