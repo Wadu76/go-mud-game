@@ -3,6 +3,7 @@ package network
 import (
 	//"bufio"
 	"fmt"
+	"mud-server/database"
 	"mud-server/game"
 	"net"
 	"strings"
@@ -10,6 +11,11 @@ import (
 
 // StartServer 启动TCP服务器
 func StartServer() {
+	//0 先连数据库
+	database.InitDB()
+	//0-1 自动建表，根据game.player结构创建表
+	database.DB.AutoMigrate(&game.Player{})
+
 	InitWorld()
 	//1监听端口 8888
 	listener, err := net.Listen("tcp", ":8888") //err是错误信息， listener是监听对象
@@ -55,11 +61,30 @@ func handleConnection(conn net.Conn) {
 		playername = "不起名字（香菜版）"
 	}
 
+	fmt.Printf("正在尝试加载玩家:%s ...\n", playername)
+	hero, err := game.LoadPlayer(playername)
+	if err != nil {
+		fmt.Println("读取失败")
+		return
+	}
+
+	if hero != nil {
+		fmt.Printf("欢迎回来老朋友，找个位置随便坐吧%s！ (等级 %d)\n", hero.Name, hero.Level)
+		hero.CurrentRoom = GlobalWorld.StartRoom
+
+		conn.Write([]byte(fmt.Sprintf("欢迎回来, %s!读取档案成功。\n", hero.Name)))
+	} else {
+		fmt.Printf("创建新角色: %s\n", playername)
+		hero = game.NewPlayer(playername, 1, 100, 100)
+		hero.CurrentRoom = GlobalWorld.StartRoom
+		conn.Write([]byte("欢迎你！你的数据已存储！\n"))
+	}
+
 	//初始化玩家游戏数据
-	hero := game.NewPlayer(playername, 1, 100, 100)
+	//hero := game.NewPlayer(playername, 1, 100, 100)
 	//monster := game.NewMonster("史莱姆王", 50, 50, 20)
 	//此处正式把玩家丢到出生点
-	hero.CurrentRoom = GlobalWorld.StartRoom
+	//hero.CurrentRoom = GlobalWorld.StartRoom
 
 	//加入世界
 	GlobalWorld.AddPlayer(conn)
@@ -72,7 +97,7 @@ func handleConnection(conn net.Conn) {
 	fmt.Println("新玩家接入，正在初始化游戏数据...")
 	GlobalWorld.MessageChannel <- fmt.Sprintf("欢迎 勇士 [%s] 加入游戏！\n", playername)
 
-	conn.Write([]byte("===== 欢迎来到GO MUD 在线测试版 =====\n 请输入 attack, heal, status, say, exit\n>"))
+	conn.Write([]byte("===== 欢迎来到GO MUD 在线测试版 =====\n 请输入 attack, heal, status, say, go, look, save, exit\n>"))
 	//Write 是一个核心方法，它的作用是将数据写入到一个“目标”中。 可以是文件、网络连接、内存缓冲区、标准输出（你的终端屏幕）等等。
 	buf = make([]byte, 1024) //缓冲区
 	for {
@@ -182,6 +207,10 @@ func handleConnection(conn net.Conn) {
 				response = hero.CurrentRoom.GetInfo() + "\n"
 			}
 			//其实不需要，因为已经处理了空房间的情况，但为方便阅读就这样写了
+
+		case "save":
+			response = "保存成功\n"
+			hero.Save()
 
 		case "exit":
 			conn.Write([]byte("Bye~\n"))
