@@ -14,7 +14,8 @@ func StartServer() {
 	//0 先连数据库
 	database.InitDB()
 	//0-1 自动建表，根据game.player结构创建表
-	database.DB.AutoMigrate(&game.Player{})
+	//0-2 新加个Item表
+	database.DB.AutoMigrate(&game.Player{}, &game.Item{})
 
 	InitWorld()
 	//1监听端口 8888
@@ -80,6 +81,19 @@ func handleConnection(conn net.Conn) {
 		conn.Write([]byte("欢迎你！你的数据已存储！\n"))
 	}
 
+	//测试代码，先每个人发一把剑 测试成功，已经完成背包雏形，但目前还不能对背包进行操作
+	if len(hero.Inventory) == 0 {
+		sword := game.NewItem("破旧的铁剑", "工匠奥利弗打造的,不过现在有些破旧了")
+		sword.PlayerName = hero.Name
+
+		database.DB.Create(sword)
+
+		//更新背包
+		hero.Inventory = append(hero.Inventory, *sword)
+		fmt.Println("默认武器已发放")
+
+	}
+
 	//初始化玩家游戏数据
 	//hero := game.NewPlayer(playername, 1, 100, 100)
 	//monster := game.NewMonster("史莱姆王", 50, 50, 20)
@@ -104,7 +118,7 @@ func handleConnection(conn net.Conn) {
 	fmt.Println("新玩家接入，正在初始化游戏数据...")
 	GlobalWorld.MessageChannel <- fmt.Sprintf("欢迎 勇士 [%s] 加入游戏！\n", playername)
 
-	conn.Write([]byte("===== 欢迎来到GO MUD 在线测试版 =====\n 请输入 attack, heal, status, say, go, look, save, exit\n>"))
+	conn.Write([]byte("===== 欢迎来到GO MUD 在线测试版 =====\n 请输入 attack, heal, status, say, go, look, inventory, save, exit\n>"))
 	//Write 是一个核心方法，它的作用是将数据写入到一个“目标”中。 可以是文件、网络连接、内存缓冲区、标准输出（你的终端屏幕）等等。
 	buf = make([]byte, 1024) //缓冲区
 	for {
@@ -156,7 +170,6 @@ func handleConnection(conn net.Conn) {
 				GlobalWorld.MessageChannel <- fmt.Sprintf("勇士 [%s]成功击败了史莱姆王！获得 %d 经验\n", hero.Name, boss.Exp)
 				//response += fmt.Sprintf("成功击败了史莱姆王！获得 %d 经验\n", boss.Exp)
 			}
-
 
 		case "heal":
 			log1 := hero.Heal()
@@ -217,6 +230,9 @@ func handleConnection(conn net.Conn) {
 				response = hero.CurrentRoom.GetInfo() + "\n"
 			}
 			//其实不需要，因为已经处理了空房间的情况，但为方便阅读就这样写了
+
+		case "inventory":
+			response = hero.ListInventory()
 
 		case "save":
 			response = "保存成功\n"

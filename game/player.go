@@ -16,13 +16,18 @@ type Player struct {
 	//玩家所在房间 （类似个gps）
 	CurrentRoom     *Room  `gorm:"-" json:"-"` //gorm: "-" json:"-" 表示在数据库中不存储，在json中也不展示，忽略
 	CurrentRoomName string `json:"room_name"`
+
+	//玩家背包 gorm会去item表中找 PlayerName == name的记录帮给他放入这个背包中
+	Inventory []Item `gorm:"foreignKey:PlayerName" json:"inventory"`
+
 }
 
 // 从数据库加载玩家
 func LoadPlayer(name string) (*Player, error) {
 	var p Player
 
-	result := database.DB.Where("name = ?", name).First(&p)
+	//查玩家，顺便查他的背包
+	result := database.DB.Preload("Inventory").Where("name = ?", name).First(&p)
 	if result.Error != nil {
 		//记录不存在说明是新玩家
 		return nil, nil
@@ -110,4 +115,18 @@ func (p *Player) Move(direction string) (bool, string) {
 	p.CurrentRoom.PlayerEnter(p)
 
 	return true, p.CurrentRoom.GetInfo()
+}
+
+
+//查看背包
+func (p* Player) ListInventory() string {
+	if (len(p.Inventory) == 0) {
+		return "你的背包空空如也~ \n"
+	}
+
+	info := "你的背包里有：\n"
+	for _, item := range p.Inventory {
+		info += fmt.Sprintf("- [%s]: %s\n", item.Name, item.Desc)
+	}
+	return info
 }
