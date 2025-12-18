@@ -86,13 +86,17 @@ func handleConnection(conn net.Conn) {
 	//此处正式把玩家丢到出生点
 	//hero.CurrentRoom = GlobalWorld.StartRoom
 
-	//加入世界
-	GlobalWorld.AddPlayer(conn)
+	//加入世界 先加入世界World，再加入Room
+	GlobalWorld.AddPlayer(hero.Name, conn)
+	hero.CurrentRoom.PlayerEnter(hero)
 	//defer conn.Close() //玩家断开时关闭连接
+
 	defer func() {
 		fmt.Println("saving...")
 		hero.Save() //退出自动保存
-		GlobalWorld.RemovePlayer(conn)
+		GlobalWorld.RemovePlayer(hero.Name, conn)
+		//玩家退出后自动离开该房间，到时候回来依旧在此房间，因为在哪是和玩家绑定的，这里解绑的是Room里存的玩家信息
+		hero.CurrentRoom.PlayerLeave(hero)
 		conn.Close()
 
 	}()
@@ -138,8 +142,9 @@ func handleConnection(conn net.Conn) {
 
 			//广播给所有玩家，替换原本的response
 			boradcastMsg := fmt.Sprintf("%s\n", log1)
-			GlobalWorld.MessageChannel <- boradcastMsg
+			//GlobalWorld.MessageChannel <- boradcastMsg
 			//response = log1 + "\n" 这是给单独玩家的response
+			GlobalWorld.BroadcastToRoom(hero.CurrentRoom, boradcastMsg)
 
 			if boss.HP > 0 {
 				//boss反击
@@ -151,6 +156,7 @@ func handleConnection(conn net.Conn) {
 				GlobalWorld.MessageChannel <- fmt.Sprintf("勇士 [%s]成功击败了史莱姆王！获得 %d 经验\n", hero.Name, boss.Exp)
 				//response += fmt.Sprintf("成功击败了史莱姆王！获得 %d 经验\n", boss.Exp)
 			}
+
 
 		case "heal":
 			log1 := hero.Heal()
@@ -174,7 +180,8 @@ func handleConnection(conn net.Conn) {
 			content = strings.TrimSpace(content)
 
 			msg := fmt.Sprintf("[%s]说 %s\n>", hero.Name, content)
-			GlobalWorld.MessageChannel <- msg
+			//GlobalWorld.MessageChannel <- msg
+			GlobalWorld.BroadcastToRoom(hero.CurrentRoom, msg)
 			response = ""
 
 		case "go":

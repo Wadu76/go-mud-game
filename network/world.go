@@ -14,6 +14,7 @@ type World struct {
 	mu sync.RWMutex
 
 	//在线玩家列表，key为玩家地址（string） value是连接net.conn
+	//key接下来改为玩家名字 依旧是string
 	OnlinePlayers map[string]net.Conn
 
 	//广播通道
@@ -85,20 +86,35 @@ func (w *World) BroadcastLoop() {
 }
 
 // 玩家加入游戏
-func (w *World) AddPlayer(conn net.Conn) {
+func (w *World) AddPlayer(name string, conn net.Conn) {
 	w.mu.Lock()
 	//RemoteAddr()返回远程地址，类型为net.Addr,其对应.String()方法返回字符串格式的地址,即玩家名
-	w.OnlinePlayers[conn.RemoteAddr().String()] = conn
+	w.OnlinePlayers[name] = conn //名字作为key
 	w.mu.Unlock()
 
-	w.MessageChannel <- fmt.Sprintf("🔈 系统广播: 玩家 [%s] 加入了游戏! \n>", conn.RemoteAddr())
+	//w.MessageChannel <- fmt.Sprintf("🔈 系统广播: 玩家 [%s] 加入了游戏! \n>", conn.RemoteAddr())
 }
 
 // 玩家离开游戏
-func (w *World) RemovePlayer(conn net.Conn) {
+func (w *World) RemovePlayer(name string, conn net.Conn) {
 	w.mu.Lock()
-	delete(w.OnlinePlayers, conn.RemoteAddr().String())
+
+	delete(w.OnlinePlayers, name)
 	w.mu.Unlock()
 
-	w.MessageChannel <- fmt.Sprintf("🔈 系统广播: 玩家 [%s] 离开了游戏! \n>", conn.RemoteAddr())
+	//w.MessageChannel <- fmt.Sprintf("🔈 系统广播: 玩家 [%s] 离开了游戏! \n>", conn.RemoteAddr())
+}
+
+// 房间内部广播
+func (w *World) BroadcastToRoom(room *game.Room, msg string) {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+
+	//遍历该房间有的玩家
+	for playerName := range room.Players {
+		//
+		if conn, ok := w.OnlinePlayers[playerName]; ok {
+			conn.Write([]byte(msg))
+		}
+	}
 }

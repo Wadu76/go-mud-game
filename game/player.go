@@ -100,7 +100,14 @@ func (p *Player) Move(direction string) (bool, string) {
 		return false, "那边没有路！"
 	}
 
-	//移动
+	//玩家先离开该房间
+	p.CurrentRoom.PlayerLeave(p)
+
+	//移动，先把玩家对应房间信息更新
 	p.CurrentRoom = nextRoom
+
+	//玩家进入新房间
+	p.CurrentRoom.PlayerEnter(p)
+
 	return true, p.CurrentRoom.GetInfo()
 }

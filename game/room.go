@@ -7,6 +7,9 @@ type Room struct {
 	Description string
 	Exits       map[string]*Room
 	//键为方向，值为下一个房间
+
+	//key 玩家名字 value 玩家指针 为了记录某一个房间有哪些玩家
+	Players map[string]*Player
 }
 
 //工厂函数
@@ -15,6 +18,7 @@ func NewRoom(name, desc string) *Room {
 		Name:        name,
 		Description: desc,
 		Exits:       make(map[string]*Room),
+		Players:     make(map[string]*Player), //!!!!!!!!!!!!!!!!!!!!!千万不能忘 声明map必须make
 	}
 }
 
@@ -39,4 +43,14 @@ func (r *Room) GetInfo() string {
 		info += dir + " "
 	}
 	return info
+}
+
+//玩家进入房间 玩家move in的时候调用
+func (r *Room) PlayerEnter(p *Player) {
+	r.Players[p.Name] = p
+}
+
+//玩家离开房间,玩家move away后调用
+func (r *Room) PlayerLeave(p *Player) {
+	delete(r.Players, p.Name)
 }
