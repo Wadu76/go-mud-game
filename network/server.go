@@ -90,8 +90,11 @@ func handleConnection(conn net.Conn) {
 	GlobalWorld.AddPlayer(conn)
 	//defer conn.Close() //玩家断开时关闭连接
 	defer func() {
+		fmt.Println("saving...")
+		hero.Save() //退出自动保存
 		GlobalWorld.RemovePlayer(conn)
 		conn.Close()
+
 	}()
 
 	fmt.Println("新玩家接入，正在初始化游戏数据...")
