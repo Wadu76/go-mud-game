@@ -19,7 +19,6 @@ type Player struct {
 
 	//玩家背包 gorm会去item表中找 PlayerName == name的记录帮给他放入这个背包中
 	Inventory []Item `gorm:"foreignKey:PlayerName" json:"inventory"`
-	
 }
 
 // 从数据库加载玩家
@@ -67,7 +66,8 @@ func (p *Player) TakeDamage(dmg int) string {
 }
 
 func (p *Player) Attack(target Attackable) string {
-	damage := 10 //假设每次攻击造成10点伤害(暂时)
+	//damage := 10 //假设每次攻击造成10点伤害(暂时) 我们已经有我们的数值计算函数了！
+	damage := p.GetAttackPower()
 	log1 := fmt.Sprintf(" 🗡 [%s] 攻击了 [%s]!\n", p.Name, target.GetName())
 
 	log2 := target.TakeDamage(damage)
@@ -118,6 +118,7 @@ func (p *Player) Move(direction string) (bool, string) {
 }
 
 // 查看背包
+// 加上查看到已经安装装备
 func (p *Player) ListInventory() string {
 	if len(p.Inventory) == 0 {
 		return "你的背包空空如也~ \n"
@@ -126,6 +127,15 @@ func (p *Player) ListInventory() string {
 	info := "你的背包里有：\n"
 	for _, item := range p.Inventory {
 		info += fmt.Sprintf("- [%s]: %s\n", item.Name, item.Desc)
+	}
+
+	for _, item := range p.Inventory {
+		status := ""
+		if item.IsEquipped {
+			status = " (已装备)"
+		}
+		info += fmt.Sprintf("- %s[%s] (攻:%d)%s: %s\n", status, item.Name, item.Value, status, item.Desc)
+		info += fmt.Sprintf("总攻击力:%d\n", p.GetAttackPower())
 	}
 	return info
 }
@@ -197,4 +207,118 @@ func (p *Player) Pick(itemName string) (bool, string) {
 
 	//前面的都没返回说明捡起来了
 	return true, fmt.Sprintf("你捡起了%s", targetItem.Name)
+}
+
+// 装配武器方法，穿戴上装备才有用！
+func (p *Player) Equip(itemName string) (bool, string) {
+	//先检查包里面有没有
+	var targetItem *Item
+
+	//这个循环中的item拷贝了背包物品，值拷贝无法修改原物品
+	// （_表示不要索引，但第二种循环表明了我们还是需要的） go语言的存在即合理
+	/*for _, item := range p.Inventory {
+		if item.Name == itemName {
+			targetItem = &item
+			break
+		}
+	}*/
+	
+	//而该循环方式我们是直接调用Inventory对应的物品，引用直接改
+
+	for i := range p.Inventory {
+		if p.Inventory[i].Name == itemName {
+			targetItem = &p.Inventory[i]
+			break
+		}
+	}
+	if targetItem == nil {
+		return false, "你背包里没有这个装备诶"
+	}
+
+	//检查类型是否为武器
+	if targetItem.Type != ItemTypeWeapon {
+		return false, "这个不是武器诶, 不能拿照片砍人吧！"
+	}
+
+	//检查是否已经装备了武器
+	if targetItem.IsEquipped {
+		return false, "你已经在装备这个武器了"
+	}
+	//不过这个有点歧义，我从背包里拿出来了，武器还在背包里吗？后面再改吧，先检测是否装备了？
+
+	//如果已经拿了别的武器，要先卸下,
+
+	/*
+		if p.EquipedWeapon != nil {
+			return false, "你已经在装备别的武器了，请先卸下"
+		}*/
+
+	// 额但是没弄player对应手上武器标签，后续更新,暂时先注释大概写法
+
+	//装备上武器
+	targetItem.IsEquipped = true
+
+	//存入数据库
+	database.DB.Save(targetItem)
+
+	return true, fmt.Sprintf("你装上了了%s 攻击力提升%d！", targetItem.Name, targetItem.Value)
+}
+
+// 卸下武器方法
+func (p *Player) UnEquip(itemName string) (bool, string) {
+	//先检查
+	var targetItem *Item
+	//先在背包里找这个武器吧，要是player有个装备标签的话，那应该更好
+	/*for _, item := range p.Inventory {
+		if item.Name == itemName {
+			targetItem = &item
+			break
+		}
+	}*/
+	for i := range p.Inventory {
+		if p.Inventory[i].Name == itemName {
+			targetItem = &p.Inventory[i]
+			break
+		}
+	}
+
+	//压根没有该武器
+	if targetItem == nil {
+		return false, "你貌似没有佩戴任何武器（背包里没有）"
+	}
+
+	//不是武器
+	if targetItem.Type != ItemTypeWeapon {
+		return false, "这个不是武器诶"
+	}
+
+	//已经卸下了
+	if !targetItem.IsEquipped {
+		return false, "你已经卸下了这个武器"
+	}
+
+	//卸下武器
+	targetItem.IsEquipped = false
+
+	//存入数据库 卸下了~
+	database.DB.Save(targetItem)
+
+	return true, fmt.Sprintf("你卸下了%s, 攻击力减少了%d", targetItem.Name, targetItem.Value)
+}
+
+//计算攻击力，让安装上武器有伤害
+
+func (p *Player) GetAttackPower() int {
+	//基础的拳头伤害
+	damage := 1
+
+	//遍历，把装备上的武器的伤害加起来
+	for _, item := range p.Inventory {
+		if item.IsEquipped {
+			damage += item.Value
+		}
+	}
+
+	//返回总共的伤害
+	return damage
 }

@@ -18,14 +18,12 @@ func StartServer() {
 	database.DB.AutoMigrate(&game.Player{}, &game.Item{})
 
 	fmt.Println("正在检查并自动建表...")
-    err := database.DB.AutoMigrate(&game.Player{}, &game.Item{})
-    if err != nil {
-        
-        panic("自动建表失败: " + err.Error())
-    }
-    fmt.Println("表结构同步完成！")
+	err := database.DB.AutoMigrate(&game.Player{}, &game.Item{})
+	if err != nil {
 
-
+		panic("自动建表失败: " + err.Error())
+	}
+	fmt.Println("表结构同步完成！")
 
 	InitWorld()
 	//1监听端口 8888
@@ -95,7 +93,7 @@ func handleConnection(conn net.Conn) {
 
 	//测试代码，先每个人发一把剑 测试成功，已经完成背包雏形，但目前还不能对背包进行操作
 	if len(hero.Inventory) == 0 {
-		sword := game.NewItem("破旧的铁剑", "工匠奥利弗打造的,不过现在有些破旧了")
+		sword := game.NewItem("破旧的铁剑", "工匠奥利弗打造的,不过现在有些破旧了", game.ItemTypeWeapon, 5)
 		sword.PlayerName = hero.Name
 
 		database.DB.Create(sword)
@@ -130,7 +128,7 @@ func handleConnection(conn net.Conn) {
 	fmt.Println("新玩家接入，正在初始化游戏数据...")
 	GlobalWorld.MessageChannel <- fmt.Sprintf("欢迎 勇士 [%s] 加入游戏！\n", playername)
 
-	conn.Write([]byte("===== 欢迎来到GO MUD 在线测试版 =====\n 请输入 attack, heal, status, say, go, look, inventory, pick, drop, save, exit\n>"))
+	conn.Write([]byte("===== 欢迎来到GO MUD 在线测试版 =====\n 请输入 attack, heal, status, say, go, look, inventory, pick, drop, equip, unequip, save, exit\n>"))
 	//Write 是一个核心方法，它的作用是将数据写入到一个“目标”中。 可以是文件、网络连接、内存缓冲区、标准输出（你的终端屏幕）等等。
 	buf = make([]byte, 1024) //缓冲区
 	for {
@@ -270,6 +268,29 @@ func handleConnection(conn net.Conn) {
 			response = msg + "\n"
 			if ok {
 				GlobalWorld.BroadcastToRoom(hero.CurrentRoom, fmt.Sprintf("%s 丢弃了 [%s]\n", hero.Name, itemName))
+			}
+
+		case "equip":
+			if len(parts) < 2 {
+				response = "要装备什么？请输入 equip <物品名>\n"
+				break
+			}
+			itemName := parts[1] //提取第二个参数 即物品名(不能有空格)
+			ok, msg := hero.Equip(itemName)
+			response = msg + "\n"
+			if ok {
+			}
+			//GlobalWorld.BroadcastToRoom(hero.CurrentRoom, fmt.Sprintf("%s 装备了 [%s]\n", hero.Name, itemName))
+
+		case "unequip":
+			if len(parts) < 2 {
+				response = "要卸下什么？请输入 unequip <物品名>\n"
+				break
+			}
+			itemName := parts[1] //提取第二个参数 即物品名(不能有空格)
+			ok, msg := hero.UnEquip(itemName)
+			response = msg + "\n"
+			if ok {
 			}
 
 		case "save":
