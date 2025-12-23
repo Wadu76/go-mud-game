@@ -19,6 +19,24 @@ type Player struct {
 
 	//玩家背包 gorm会去item表中找 PlayerName == name的记录帮给他放入这个背包中
 	Inventory []Item `gorm:"foreignKey:PlayerName" json:"inventory"`
+
+	//玩家需要升级，玩家可以变强了
+	Exp int `json:"exp"`
+
+	//玩家升下一级需要的经验值
+	NextLevelExp int `json:"next_level_exp"`
+}
+
+func NewPlayer(name string, level int, hp int, maxHp int) *Player {
+	return &Player{
+		Name:         name,
+		Level:        level,
+		HP:           hp,
+		MaxHP:        maxHp,
+		CurrentRoom:  nil, //初始化时暂时为空，后面为World分配
+		Exp:          0,   //初始经验从0开始
+		NextLevelExp: 100, //初始升级经验值 从1级->2级需要100经验
+	}
 }
 
 // 从数据库加载玩家
@@ -81,16 +99,6 @@ func (p *Player) Heal() string {
 		p.HP = p.MaxHP
 	}
 	return fmt.Sprintf("💊 [%s] 治疗了自己，恢复 %d 点血量！目前血量为 %d\n", p.Name, heal, p.HP)
-}
-
-func NewPlayer(name string, level int, hp int, maxHp int) *Player {
-	return &Player{
-		Name:        name,
-		Level:       level,
-		HP:          hp,
-		MaxHP:       maxHp,
-		CurrentRoom: nil, //初始化时暂时为空，后面为World分配
-	}
 }
 
 // 移动逻辑
@@ -213,7 +221,7 @@ func (p *Player) Pick(itemName string) (bool, string) {
 func (p *Player) Equip(itemName string) (bool, string) {
 	//先检查包里面有没有
 	var targetItem *Item
-
+	msg := ""
 	//这个循环中的item拷贝了背包物品，值拷贝无法修改原物品
 	// （_表示不要索引，但第二种循环表明了我们还是需要的） go语言的存在即合理
 	/*for _, item := range p.Inventory {
@@ -222,7 +230,7 @@ func (p *Player) Equip(itemName string) (bool, string) {
 			break
 		}
 	}*/
-	
+
 	//而该循环方式我们是直接调用Inventory对应的物品，引用直接改
 
 	for i := range p.Inventory {
@@ -255,17 +263,27 @@ func (p *Player) Equip(itemName string) (bool, string) {
 
 	// 额但是没弄player对应手上武器标签，后续更新,暂时先注释大概写法
 
+	for i := range p.Inventory {
+		//如果是武器，且已装备，且不是我现在要穿的这把
+		if p.Inventory[i].Type == ItemTypeWeapon && p.Inventory[i].IsEquipped && p.Inventory[i].ID != targetItem.ID {
+			p.Inventory[i].IsEquipped = false
+			database.DB.Save(&p.Inventory[i]) // 记得存库
+			msg = fmt.Sprintf("为你卸下了%s", p.Inventory[i].Name)
+			//return true, fmt.Sprintf("安装上了%s, 且同时为你卸下了%s\n你现在攻击力为%d", targetItem.Name, p.Inventory[i].Name, p.GetAttackPower())
+		}
+	}
 	//装备上武器
 	targetItem.IsEquipped = true
 
 	//存入数据库
 	database.DB.Save(targetItem)
 
-	return true, fmt.Sprintf("你装上了了%s 攻击力提升%d！", targetItem.Name, targetItem.Value)
+	msg += fmt.Sprintf("你装上了了%s 攻击力提升%d！", targetItem.Name, targetItem.Value)
+	return true, msg
 }
 
 // 卸下武器方法
-func (p *Player) UnEquip(itemName string) (bool, string) {
+func (p *Player) Unequip(itemName string) (bool, string) {
 	//先检查
 	var targetItem *Item
 	//先在背包里找这个武器吧，要是player有个装备标签的话，那应该更好
@@ -306,8 +324,7 @@ func (p *Player) UnEquip(itemName string) (bool, string) {
 	return true, fmt.Sprintf("你卸下了%s, 攻击力减少了%d", targetItem.Name, targetItem.Value)
 }
 
-//计算攻击力，让安装上武器有伤害
-
+// 计算攻击力，让安装上武器有伤害
 func (p *Player) GetAttackPower() int {
 	//基础的拳头伤害
 	damage := 1
@@ -321,4 +338,29 @@ func (p *Player) GetAttackPower() int {
 
 	//返回总共的伤害
 	return damage
+}
+
+// 获取经验方法
+func (p *Player) GainExp(amount int) string {
+	p.Exp += amount
+	log := fmt.Sprintf("你获得了%d点经验", amount)
+
+	//检查是否升级
+	//可能一次升级多次，因此用循环
+	for p.Exp >= p.NextLevelExp {
+		p.Level++
+		p.Exp -= p.NextLevelExp
+		p.NextLevelExp = p.Level * 100 //升级曲线，每级多100点，先这样简单啦
+
+		//升级属性提高！
+		p.MaxHP += 20
+		//升级直接回满血
+		p.HP = p.MaxHP
+
+		log += fmt.Sprintf("\n你升级了！当前等级：%d", p.Level)
+
+	}
+	database.DB.Save(p)
+
+	return log
 }

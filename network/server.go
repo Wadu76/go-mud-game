@@ -179,6 +179,18 @@ func handleConnection(conn net.Conn) {
 				//boss被击败，肯定要广播
 				GlobalWorld.MessageChannel <- fmt.Sprintf("勇士 [%s]成功击败了史莱姆王！获得 %d 经验\n", hero.Name, boss.Exp)
 				//response += fmt.Sprintf("成功击败了史莱姆王！获得 %d 经验\n", boss.Exp)
+
+				//发经验
+				levelUplog := hero.GainExp(boss.Exp)
+				conn.Write([]byte(levelUplog + "\n"))
+
+				//重生boss
+
+				boss.Lock()
+				boss.HP = boss.MaxHP
+				boss.Unlock()
+				GlobalWorld.BroadcastToRoom(hero.CurrentRoom, fmt.Sprintf(" [%s] 复活了！快跑啊！\n", boss.Name))
+
 			}
 
 		case "heal":
@@ -288,7 +300,7 @@ func handleConnection(conn net.Conn) {
 				break
 			}
 			itemName := parts[1] //提取第二个参数 即物品名(不能有空格)
-			ok, msg := hero.UnEquip(itemName)
+			ok, msg := hero.Unequip(itemName)
 			response = msg + "\n"
 			if ok {
 			}
