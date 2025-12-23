@@ -17,6 +17,16 @@ func StartServer() {
 	//0-2 新加个Item表
 	database.DB.AutoMigrate(&game.Player{}, &game.Item{})
 
+	fmt.Println("正在检查并自动建表...")
+    err := database.DB.AutoMigrate(&game.Player{}, &game.Item{})
+    if err != nil {
+        
+        panic("自动建表失败: " + err.Error())
+    }
+    fmt.Println("表结构同步完成！")
+
+
+
 	InitWorld()
 	//1监听端口 8888
 	listener, err := net.Listen("tcp", ":8888") //err是错误信息， listener是监听对象
@@ -78,6 +88,8 @@ func handleConnection(conn net.Conn) {
 		fmt.Printf("创建新角色: %s\n", playername)
 		hero = game.NewPlayer(playername, 1, 100, 100)
 		hero.CurrentRoom = GlobalWorld.StartRoom
+
+		database.DB.Create(hero) //创建玩家
 		conn.Write([]byte("欢迎你！你的数据已存储！\n"))
 	}
 
@@ -118,7 +130,7 @@ func handleConnection(conn net.Conn) {
 	fmt.Println("新玩家接入，正在初始化游戏数据...")
 	GlobalWorld.MessageChannel <- fmt.Sprintf("欢迎 勇士 [%s] 加入游戏！\n", playername)
 
-	conn.Write([]byte("===== 欢迎来到GO MUD 在线测试版 =====\n 请输入 attack, heal, status, say, go, look, inventory, save, exit\n>"))
+	conn.Write([]byte("===== 欢迎来到GO MUD 在线测试版 =====\n 请输入 attack, heal, status, say, go, look, inventory, pick, drop, save, exit\n>"))
 	//Write 是一个核心方法，它的作用是将数据写入到一个“目标”中。 可以是文件、网络连接、内存缓冲区、标准输出（你的终端屏幕）等等。
 	buf = make([]byte, 1024) //缓冲区
 	for {
@@ -233,6 +245,32 @@ func handleConnection(conn net.Conn) {
 
 		case "inventory":
 			response = hero.ListInventory()
+
+		//pick itemName
+		case "pick":
+			if len(parts) < 2 {
+				response = "要捡什么？请输入 pick <物品名>\n"
+				break
+			}
+			itemName := parts[1] //提取第二个参数 即物品名(不能有空格)
+			ok, msg := hero.Pick(itemName)
+			response = msg + "\n"
+			if ok {
+				GlobalWorld.BroadcastToRoom(hero.CurrentRoom, fmt.Sprintf("%s 捡起了 [%s]\n", hero.Name, itemName))
+			}
+
+		//drop itemName
+		case "drop":
+			if len(parts) < 2 {
+				response = "要丢弃什么？请输入 drop <物品名>\n"
+				break
+			}
+			itemName := parts[1] //提取第二个参数 即物品名(不能有空格)
+			ok, msg := hero.Drop(itemName)
+			response = msg + "\n"
+			if ok {
+				GlobalWorld.BroadcastToRoom(hero.CurrentRoom, fmt.Sprintf("%s 丢弃了 [%s]\n", hero.Name, itemName))
+			}
 
 		case "save":
 			response = "保存成功\n"

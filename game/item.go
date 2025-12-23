@@ -12,10 +12,14 @@ type Item struct {
 	Desc string `json:"desc"`
 
 	//外键，指向Player表。表示该item属于哪个Player
-	PlayerName string `json:"player_name"`
+	PlayerName string `json:"player_name" gorm:"size:255"`
+
+	//物品在玩家手里，Roomname为空，反之PlayerName为空
+	//记录物品是否在房间里
+	RoomName string `json:"room_name" gorm:"size:255"`
 }
 
-//工厂函数
+// 工厂函数
 func NewItem(name string, desc string) *Item {
 	return &Item{
 		Name: name,

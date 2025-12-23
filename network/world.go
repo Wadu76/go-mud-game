@@ -3,6 +3,7 @@ package network
 //管理所有在线玩家的连接，时刻听着广播通道
 import (
 	"fmt"
+	"mud-server/database"
 	"mud-server/game"
 	"net"
 	"sync"
@@ -25,18 +26,29 @@ type World struct {
 
 	//出生点房间，玩家上线会自动进入
 	StartRoom *game.Room
+
+	AllRooms map[string]*game.Room
 }
 
 // 全局变量，整个游戏就只有一个世界
 var GlobalWorld *World
 
+// 把所有房间放一起
+// var AllRooms map[string]*game.Room
 func InitWorld() {
 
 	//创建房间
+	//make(map[string]*game.Room)
+	//InitAllRoomsTogether()
 	town := game.NewRoom("新手村广场", "这里是梦开始的地方，十分安全，可以在这里接冒险者工会的任务。")
 	forest := game.NewRoom("黑暗森林", "在广场旁边的森林，这里树木丛生，传来着各种奇奇怪怪的声音...")
 	cave := game.NewRoom("恶龙巢穴", "深不见底的洞穴，这里甚至能闻到硫磺味。")
 
+	tempRooms := make(map[string]*game.Room)
+	town.AddToMap(tempRooms)
+	forest.AddToMap(tempRooms)
+	cave.AddToMap(tempRooms)
+	//连接房间
 	fmt.Println("房间创建完成，开始连接房间...") // 添加调试信息
 
 	//连接各个房间
@@ -59,8 +71,13 @@ func InitWorld() {
 
 		//在此处初始化出生点房间
 		StartRoom: town,
-	}
 
+		AllRooms: tempRooms,
+	}
+	//cesh
+	//town.Items["tword"] = game.NewItem("tword", "test") 剑只在内存里，没有数据库ID，所以不能这样写
+	loadWorldItems() //加载世界物品
+	//InitAllRoomsTogether()   //把所有房间放一起
 	//启动独立的Goroutine，负责分发广播
 	go GlobalWorld.BroadcastLoop()
 }
@@ -115,6 +132,21 @@ func (w *World) BroadcastToRoom(room *game.Room, msg string) {
 		//
 		if conn, ok := w.OnlinePlayers[playerName]; ok {
 			conn.Write([]byte(msg))
+		}
+	}
+}
+
+// 用于读取无主的物品放到对应房间里
+func loadWorldItems() {
+	var items []game.Item
+	//找出所有RoomName不为空的物品
+	database.DB.Where("room_name != ''").Find(&items)
+
+	for _, item := range items {
+		if room, ok := GlobalWorld.AllRooms[item.RoomName]; ok {
+			newItem := item
+			room.Items[item.Name] = &newItem
+			fmt.Printf("加载物品: %s 到 %s\n", item.Name, item.RoomName)
 		}
 	}
 }

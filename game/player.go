@@ -6,7 +6,7 @@ import (
 )
 
 // 1定义玩家结构体
-// Capital == Public else Private
+// Capital == Public， else Private
 type Player struct {
 	Name  string `gorm:"primaryKey" json:"name"` //玩家名字
 	Level int    `json:"level"`                  //玩家等级
@@ -19,7 +19,7 @@ type Player struct {
 
 	//玩家背包 gorm会去item表中找 PlayerName == name的记录帮给他放入这个背包中
 	Inventory []Item `gorm:"foreignKey:PlayerName" json:"inventory"`
-
+	
 }
 
 // 从数据库加载玩家
@@ -117,10 +117,9 @@ func (p *Player) Move(direction string) (bool, string) {
 	return true, p.CurrentRoom.GetInfo()
 }
 
-
-//查看背包
-func (p* Player) ListInventory() string {
-	if (len(p.Inventory) == 0) {
+// 查看背包
+func (p *Player) ListInventory() string {
+	if len(p.Inventory) == 0 {
 		return "你的背包空空如也~ \n"
 	}
 
@@ -129,4 +128,73 @@ func (p* Player) ListInventory() string {
 		info += fmt.Sprintf("- [%s]: %s\n", item.Name, item.Desc)
 	}
 	return info
+}
+
+// 丢弃物品 从背包inventory -> 地上 Drop item_name
+func (p *Player) Drop(itemName string) (bool, string) {
+	//先看有没有这个东西
+	var targetItem *Item
+	var index int
+	for i, item := range p.Inventory {
+		if item.Name == itemName {
+			targetItem = &p.Inventory[i] //指针，指向背包里的物品
+			index = i
+			break
+		}
+	}
+	if targetItem == nil {
+		return false, "你背包里没有该物品诶"
+	}
+
+	//更新数据库,把物品拿下来，也就是把Item对应的PlayerName置空；
+	//让Item对应的RoomName更新为丢弃的房间名
+	//先置空Item对应的PlayerName
+	targetItem.PlayerName = ""
+	//再更新Item对应的RoomName(即player当前房间名字)
+	targetItem.RoomName = p.CurrentRoom.Name
+
+	if err := database.DB.Save(targetItem).Error; err != nil {
+		return false, "数据库更新失败,丢不掉了QAQ" + err.Error()
+	}
+
+	//从玩家背包里删除 （删除切片元素，套模板写法）  ...用于展开切片用作分开的参数
+	//:index表示index前的所有元素，为第一个参数；
+	//index+1:表示index后的所有元素，为第二个参数
+	//...将切片展开作为多个参数，也就是把上述俩作为参数，做到了删除index这一元素的作用
+	p.Inventory = append(p.Inventory[:index], p.Inventory[index+1:]...)
+
+	//别忘了房间Room还有个Item列表，表示每个房间里有哪些物品，所以也得让房间知道自己地上有哪些物品
+	//Room的Itemmap key为Item.Name, value为*Item
+	p.CurrentRoom.Items[targetItem.Name] = targetItem
+
+	//前面的都没返回说明丢弃成功了
+	return true, fmt.Sprintf("你丢弃了%s", targetItem.Name)
+
+}
+
+// 捡东西 从地图房间 -> 背包 pick itemName
+func (p *Player) Pick(itemName string) (bool, string) {
+	//依旧先检查地上有没有这个物品
+	targetItem, ok := p.CurrentRoom.Items[itemName]
+	if !ok {
+		return false, "地上没这个玩意诶"
+	}
+
+	//更新数据库，把Item对应的PlayerName更新为当前玩家名字
+	targetItem.PlayerName = p.Name
+	//再更新Item对应的RoomName为空,这样就能表示为地上的东西被玩家pick起来了
+	targetItem.RoomName = ""
+
+	if err := database.DB.Save(targetItem).Error; err != nil {
+		return false, "数据库更新失败,捡不起来了QAQ"
+	}
+
+	//从房间中移除这个物品，别忘了Room有Itemmap！！！否则一直捡起来了
+	delete(p.CurrentRoom.Items, itemName) //第一个参数是map，第二个是map的key
+
+	//把捡起来的物品加入玩家背包
+	p.Inventory = append(p.Inventory, *targetItem)
+
+	//前面的都没返回说明捡起来了
+	return true, fmt.Sprintf("你捡起了%s", targetItem.Name)
 }

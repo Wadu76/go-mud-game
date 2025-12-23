@@ -10,6 +10,9 @@ type Room struct {
 
 	//key 玩家名字 value 玩家指针 为了记录某一个房间有哪些玩家
 	Players map[string]*Player
+
+	//key 物品名称 value 物品指针
+	Items map[string]*Item
 }
 
 //工厂函数
@@ -19,6 +22,7 @@ func NewRoom(name, desc string) *Room {
 		Description: desc,
 		Exits:       make(map[string]*Room),
 		Players:     make(map[string]*Player), //!!!!!!!!!!!!!!!!!!!!!千万不能忘 声明map必须make
+		Items:       make(map[string]*Item),
 	}
 }
 
@@ -42,6 +46,15 @@ func (r *Room) GetInfo() string {
 	for dir := range r.Exits {
 		info += dir + " "
 	}
+
+	//地图上现在有物品了，现在物品少，还是需要显示出来的
+	if len(r.Items) > 0 {
+		info += "地上可以看到："
+		for itemName := range r.Items {
+			info += "[" + itemName + "]"
+		}
+		info += "\n"
+	}
 	return info
 }
 
@@ -53,4 +66,8 @@ func (r *Room) PlayerEnter(p *Player) {
 //玩家离开房间,玩家move away后调用
 func (r *Room) PlayerLeave(p *Player) {
 	delete(r.Players, p.Name)
+}
+
+func (r *Room) AddToMap(rooms_map map[string]*Room) {
+	rooms_map[r.Name] = r
 }
