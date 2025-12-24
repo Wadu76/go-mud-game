@@ -1,0 +1,26 @@
+[
+    {
+        "id": "slime_king",
+        "name": "史莱姆王",
+        "hp": 200,
+        "max_hp": 200,
+        "exp": 100,
+        "attack": 25
+    },
+    {
+        "id": "goblin_soldier",
+        "name": "哥布林士兵",
+        "hp": 100,
+        "max_hp": 100,
+        "exp": 80,
+        "attack": 10
+    },
+    {
+        "id": "black_dragon",
+        "name": "黑龙",
+        "hp": 9999,
+        "max_hp": 9999,
+        "exp": 10000,
+        "attack": 999
+    }
+]

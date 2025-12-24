@@ -13,6 +13,9 @@ type Monster struct {
 	Exp   int //怪物掉落的经验
 	sync.Mutex
 	//有锁的玩家才能攻击怪物并使其扣血！
+
+	//怪物的攻击力
+	AttackVal int 
 }
 
 //必须实现GetName才能满足Attackable接口
@@ -36,7 +39,7 @@ func (m *Monster) TakeDamage(dmg int) string {
 
 //attack不需要上锁，attack只用读，不用写
 func (m *Monster) Attack(target Attackable) string {
-	damage := 10
+	damage := m.AttackVal
 	log1 := fmt.Sprintf(" ->怪物 [%s] 攻击了 [%s] \n", m.Name, target.GetName())
 	log2 := target.TakeDamage(damage)
 
@@ -44,11 +47,12 @@ func (m *Monster) Attack(target Attackable) string {
 
 }
 // 工厂函数
-func NewMonster(name string, hp int, maxhp int, exp int) *Monster {
+func NewMonster(name string, hp int, maxhp int, exp int, attack int) *Monster {
 	return &Monster{
 		Name:  name,
 		HP:    hp,
 		MaxHP: maxhp,
 		Exp:   exp,
+		AttackVal: attack,
 	}
 }

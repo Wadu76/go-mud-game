@@ -37,6 +37,12 @@ var GlobalWorld *World
 // var AllRooms map[string]*game.Room
 func InitWorld() {
 
+	//先加载怪物配置
+	err := game.LoadMonsterData("gamedata/monster.json")
+	if err != nil {
+		panic("加载怪物配置失败: " + err.Error())
+	}
+
 	//创建房间
 	//make(map[string]*game.Room)
 	//InitAllRoomsTogether()
@@ -67,7 +73,7 @@ func InitWorld() {
 		MessageChannel: make(chan string, 10), //缓冲区大小10
 
 		//boss赋值为Newmonster的返回值，即Monster这个结构体
-		Boss: game.NewMonster("史莱姆王", 100, 100, 50),
+		Boss: game.NewMonsterFromID("slime_king"),
 
 		//在此处初始化出生点房间
 		StartRoom: town,
