@@ -11,6 +11,10 @@ services:
       - mysql            #告诉 Docker：先启动数据库，再启动我
     environment:
       - TZ=Asia/Shanghai #设置时区
+    enviroment:
+      - DB_ADDR=mysql:3306
+    depends_on:
+      - mysql
 
   #服务2: 数据库
   mysql:
