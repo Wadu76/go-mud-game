@@ -54,9 +54,91 @@ func StartServer() {
 // 处理单个玩家的连接
 func handleConnection(conn net.Conn) {
 
+	//验证，只有登陆成功才能跳出该训话
+	var hero *game.Player
+
 	conn.Write([]byte("欢迎来到瓦度世界！请输入你的名字：\n"))
 	buf := make([]byte, 1024)
-	n, err := conn.Read(buf) //n是读取到的字节数
+	for {
+		//读取客户端输入的名字,
+		n, err := conn.Read(buf)
+		if err != nil {
+			return
+		}
+		//去掉名字中的空格 \r\n  不然输入名字的时候你的名字将会是 名字 \r\n，啥都不输入也会叫\r\n
+		input := strings.TrimSpace(string(buf[:n]))
+		//将输入的字符串按空格分割成数组,为了识别名字 & 密码
+		parts := strings.Fields(input)
+
+		if len(parts) < 3 {
+			conn.Write([]byte("格式错误，请输入: LOGIN <名字> <密码> 或 REGISTER <名字> <密码>\n>"))
+			continue
+		}
+
+		//cmd是命令 LOGIN REGISTER 登录/注册 为了统一，我们统一大写
+		cmd := strings.ToUpper(parts[0])
+
+		//name是用户名
+		name := parts[1]
+
+		//pwd是密码
+		pwd := parts[2]
+
+		//注册逻辑
+		if cmd == "REGISTER" {
+			//先查看有没有重名的
+			exists, _ := game.LoadPlayer(name)
+			if exists != nil {
+				conn.Write([]byte("该名字已经被注册了，请换一个\n"))
+				continue
+			}
+
+			//创建新号
+			//新号的等级是1，血量是100，默认的
+			newHero := game.NewPlayer(name, 1, 100, 100)
+			//密码绑定，
+			newHero.Password = pwd
+
+			//存入数据库中
+			if err := database.DB.Create(newHero).Error; err != nil {
+				conn.Write([]byte("注册失败，数据库出错\n"))
+				continue
+			}
+			conn.Write([]byte("注册成功！请使用LOGIN登陆吧！\n"))
+
+		} else if cmd == "LOGIN" {
+			//登录逻辑
+			//先确认有没有这个人
+			loadedHero, err := game.LoadPlayer(name)
+
+			//如果数据库找不到这个人，说明还没注册过
+			if err != nil || loadedHero == nil {
+				conn.Write([]byte("该用户不存在, 先去注册吧~\n"))
+				continue
+			}
+
+			//校验密码对不对 （用户账号安全）
+			if loadedHero.Password != pwd {
+				conn.Write([]byte("密码错误，请重新输入\n"))
+				continue
+			}
+
+			//没错就对了，登陆成功咯
+			//既然是登陆的，那就不需要重新创建了，直接用数据库中的数据就行了
+			hero = loadedHero
+			//conn.Write([]byte("登陆成功！欢迎回来,%s \n", hero.Name))
+			conn.Write([]byte(fmt.Sprintf("登录成功！欢迎回来，%s (Lv.%d)\n", hero.Name, hero.Level)))
+			break
+			//登陆成功就可以跳出循环了，这一循环就是为了保障玩家账户安全
+		} else {
+			//如果既不是注册也不是登陆，那就说明输入的指令不对
+			conn.Write([]byte("指令错误，请重新输入	LOGIN / REGISTER\n"))
+			continue
+		}
+
+		//既然我们要弄密码了，那就不能弄一样的默认名了，就不弄了
+	}
+	/*n, err := conn.Read(buf) //n是读取到的字节数
 	if err != nil {
 		return
 	}
@@ -89,6 +171,14 @@ func handleConnection(conn net.Conn) {
 
 		database.DB.Create(hero) //创建玩家
 		conn.Write([]byte("欢迎你！你的数据已存储！\n"))
+	}*/
+	//初始化玩家位置 必须要弄，不然又要空指针报错了
+	//如果玩家上次下线有记录房间，就去那个房间；如果没有（或找不到），就去新手村。
+	if targetRoom, ok := GlobalWorld.AllRooms[hero.CurrentRoomName]; ok {
+		hero.CurrentRoom = targetRoom
+	} else {
+		//如果是新号，或者上次的房间名字读不出来，就去出生点
+		hero.CurrentRoom = GlobalWorld.StartRoom
 	}
 
 	//测试代码，先每个人发一把剑 测试成功，已经完成背包雏形，但目前还不能对背包进行操作
@@ -126,7 +216,7 @@ func handleConnection(conn net.Conn) {
 	}()
 
 	fmt.Println("新玩家接入，正在初始化游戏数据...")
-	GlobalWorld.MessageChannel <- fmt.Sprintf("欢迎 勇士 [%s] 加入游戏！\n", playername)
+	GlobalWorld.MessageChannel <- fmt.Sprintf("欢迎 勇士 [%s] 加入游戏！\n", hero.Name)
 
 	conn.Write([]byte("===== 欢迎来到GO MUD 在线测试版 =====\n 请输入 attack, heal, status, say, go, look, inventory, pick, drop, equip, unequip, save, exit\n>"))
 	//Write 是一个核心方法，它的作用是将数据写入到一个“目标”中。 可以是文件、网络连接、内存缓冲区、标准输出（你的终端屏幕）等等。

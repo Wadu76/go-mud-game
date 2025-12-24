@@ -8,10 +8,11 @@ import (
 // 1定义玩家结构体
 // Capital == Public， else Private
 type Player struct {
-	Name  string `gorm:"primaryKey" json:"name"` //玩家名字
-	Level int    `json:"level"`                  //玩家等级
-	HP    int    `json:"hp"`                     //玩家当前血量
-	MaxHP int    `json:"max_hp"`                 //玩家最大血量
+	Name     string `gorm:"primaryKey" json:"name"` //玩家名字
+	Password string `json:"-"`                      //-表示表示以后把玩家数据发给前端时，不要把密码也发过去（安全！）
+	Level    int    `json:"level"`                  //玩家等级
+	HP       int    `json:"hp"`                     //玩家当前血量
+	MaxHP    int    `json:"max_hp"`                 //玩家最大血量
 
 	//玩家所在房间 （类似个gps）
 	CurrentRoom     *Room  `gorm:"-" json:"-"` //gorm: "-" json:"-" 表示在数据库中不存储，在json中也不展示，忽略
