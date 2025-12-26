@@ -1,16 +1,19 @@
-#告诉 GitHub：这些都是Unity自动生成的，统计语言时别算上它们！
+
+#这样GitHub统计语言时就会忽略
+Client/Library/** linguist-generated
 *.meta linguist-generated
+*.mat linguist-generated
 *.unity linguist-generated
 *.prefab linguist-generated
 *.asset linguist-generated
-*.mat linguist-generated
-*.anim linguist-generated
 *.controller linguist-generated
+*.anim linguist-generated
+*.shader linguist-generated
+*.cginc linguist-generated
+*.hlsl linguist-generated
 *.physicMaterial linguist-generated
-*.physicsMaterial2D linguist-generated
-*.spriteatlas linguist-generated
-*.terrainlayer linguist-generated
 
-#明确指定这才是我的心血
+
+#确保代码被正确识别
 Server/**/*.go linguist-language=Go
 Client/Assets/Scripts/**/*.cs linguist-language=C#
