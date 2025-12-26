@@ -1,5 +1,7 @@
 # Unity 忽略规则
-Client/[Ll]ibrary/
+/[Ll]ibrary/
+[Ll]ibrary/
+**/[Ll]ibrary/
 Client/[Tt]emp/
 Client/[Oo]bj/
 Client/[Bb]uild/
