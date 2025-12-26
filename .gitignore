@@ -1,1 +1,48 @@
-*.exe
+# Unity 忽略规则
+Client/[Ll]ibrary/
+Client/[Tt]emp/
+Client/[Oo]bj/
+Client/[Bb]uild/
+Client/[Bb]uilds/
+Client/[Ll]ogs/
+Client/[Uu]ser[Ss]ettings/
+Client/[Mm]emoryCaptures/
+Client/*.csproj
+Client/*.sln
+Client/*.pidb.meta
+Client/*.pdb.meta
+Client/*.unityproj
+Client/.vs/
+Client/.gradle/
+Client/ExportedObj/
+Client/.consulo/
+Client/*.suo
+Client/*.tmp
+Client/*.user
+Client/*.userprefs
+Client/*.pidb
+Client/*.booproj
+Client/*.svd
+Client/*.pdb
+Client/*.mdb
+Client/*.opendb
+Client/*.VC.db
+
+# Go / 后端 忽略规则
+
+# 编译产物
+Server/*.exe
+Server/*.dll
+Server/*.so
+Server/*.dylib
+Server/mud_server
+
+# 环境变量文件 (防止密码泄露)
+.env
+
+
+# IDE / 系统 垃圾文件
+.idea/
+.vscode/
+*.DS_Store
+Thumbs.db
