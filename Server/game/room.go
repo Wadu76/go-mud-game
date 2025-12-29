@@ -44,7 +44,7 @@ func (r *Room) GetInfo() string {
 	info := fmt.Sprintf("[%s]\n %s\n 可以看到的出口有:", r.Name, r.Description)
 	//出口即与该room link的其他room，可能有多个所以我们后面拼接起来即可
 	for dir := range r.Exits {
-		info += dir + " "
+		info += dir + "\n"
 	}
 
 	//地图上现在有物品了，现在物品少，还是需要显示出来的
@@ -53,7 +53,7 @@ func (r *Room) GetInfo() string {
 		for itemName := range r.Items {
 			info += "[" + itemName + "]"
 		}
-		info += "\n"
+		info += " "
 	}
 	return info
 }

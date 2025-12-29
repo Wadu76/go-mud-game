@@ -168,7 +168,7 @@ func (p *Player) Drop(itemName string) (bool, string) {
 	//更新数据库,把物品拿下来，也就是把Item对应的PlayerName置空；
 	//让Item对应的RoomName更新为丢弃的房间名
 	//先置空Item对应的PlayerName
-	targetItem.PlayerName = ""
+	targetItem.PlayerName = nil
 	//再更新Item对应的RoomName(即player当前房间名字)
 	targetItem.RoomName = p.CurrentRoom.Name
 
@@ -200,7 +200,7 @@ func (p *Player) Pick(itemName string) (bool, string) {
 	}
 
 	//更新数据库，把Item对应的PlayerName更新为当前玩家名字
-	targetItem.PlayerName = p.Name
+	targetItem.PlayerName = &p.Name
 	//再更新Item对应的RoomName为空,这样就能表示为地上的东西被玩家pick起来了
 	targetItem.RoomName = ""
 

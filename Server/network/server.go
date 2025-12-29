@@ -181,19 +181,6 @@ func handleConnection(conn net.Conn) {
 		hero.CurrentRoom = GlobalWorld.StartRoom
 	}
 
-	//测试代码，先每个人发一把剑 测试成功，已经完成背包雏形，但目前还不能对背包进行操作
-	if len(hero.Inventory) == 0 {
-		sword := game.NewItem("破旧的铁剑", "工匠奥利弗打造的,不过现在有些破旧了", game.ItemTypeWeapon, 5)
-		sword.PlayerName = hero.Name
-
-		database.DB.Create(sword)
-
-		//更新背包
-		hero.Inventory = append(hero.Inventory, *sword)
-		fmt.Println("默认武器已发放")
-
-	}
-
 	//初始化玩家游戏数据
 	//hero := game.NewPlayer(playername, 1, 100, 100)
 	//monster := game.NewMonster("史莱姆王", 50, 50, 20)
@@ -204,6 +191,19 @@ func handleConnection(conn net.Conn) {
 	GlobalWorld.AddPlayer(hero.Name, conn)
 	hero.CurrentRoom.PlayerEnter(hero)
 	//defer conn.Close() //玩家断开时关闭连接
+
+	//测试代码，先每个人发一把剑 测试成功，已经完成背包雏形，但目前还不能对背包进行操作
+	if len(hero.Inventory) == 0 {
+		sword := game.NewItem("破旧的铁剑", "工匠奥利弗打造的,不过现在有些破旧了", game.ItemTypeWeapon, 5)
+		sword.PlayerName = &hero.Name
+
+		database.DB.Create(sword)
+
+		//更新背包
+		hero.Inventory = append(hero.Inventory, *sword)
+		fmt.Println("默认武器已发放")
+
+	}
 
 	defer func() {
 		fmt.Println("saving...")
@@ -253,6 +253,23 @@ func handleConnection(conn net.Conn) {
 		switch verb {
 		case "attack":
 			log1 := hero.Attack(boss)
+			/*给自己放个假，晚点改
+			//血量更新的json msg
+			//这里是玩家攻击boss，所以boss是target，对应数据就该填boss的
+			//但要在这里改还是在player.go里改？？
+			hpMsg := game.HPUpdateMsg{
+				TargetName: boss.Name,
+				CurrentHP: boss.HP,
+				MaxHP: boss.MaxHP,
+			}
+
+			//包装一下
+			serverMsg := game.ServerMessage{
+				//这个事件是血量变化事件，告诉unity
+				Event: "hp_change",
+				//血量变化的数据
+				Data: hpMsg,
+			} */
 
 			//广播给所有玩家，替换原本的response
 			boradcastMsg := fmt.Sprintf("%s\n", log1)
@@ -292,7 +309,7 @@ func handleConnection(conn net.Conn) {
 
 		case "status":
 			//太宣布事故Boss全局的状态血量
-			response = fmt.Sprintf("状态：[%s] HP: %d/%d VS [%s] HP: %d/%d", hero.Name, hero.HP, hero.MaxHP, boss.Name, boss.HP, boss.MaxHP)
+			response = fmt.Sprintf("状态：[%s] HP: %d/%d VS [%s] HP: %d/%d\n", hero.Name, hero.HP, hero.MaxHP, boss.Name, boss.HP, boss.MaxHP)
 
 		case "say":
 			if len(parts) < 2 {
@@ -409,7 +426,28 @@ func handleConnection(conn net.Conn) {
 		if hero.HP <= 0 {
 			response += "/(ㄒoㄒ)/~~ 胜败乃兵家常事，重新连接复活再来吧！\n"
 			conn.Write([]byte(response))
-			return //踢走输掉的玩家
+			//return //踢走输掉的玩家
+			//若是直接踢走会导致客户端展现为啥都按不了了，只能关掉重来？
+			//那么为了形成一个游戏的闭环，我们就让角色直接在初始出生点复活
+			//考虑要不要丢掉背包里的所有东西，先写个丢掉所有东西的大概逻辑，后面再考虑完善或考虑用不用
+			/* ...此处省略丢掉所有东西的代码
+				可以直接用Drop()函数，遍历整个背包全都丢掉！
+				for _, item := range hero.Inventory {
+					hero.Drop(item.Name)
+					}
+			*/
+
+			//复活
+			hero.HP = hero.MaxHP
+
+			//传送回出生点
+			hero.CurrentRoom = GlobalWorld.StartRoom
+
+			//告诉Unity自己的血量，用于更新自己的血条
+			conn.Write([]byte(fmt.Sprintf("|CMD:HP:%s:%d:%d\n", hero.Name, hero.HP, hero.MaxHP)))
+
+			conn.Write([]byte("欢迎回家，重走来时路吧！\n>"))
+			continue
 		}
 		//最终战斗信息
 		response += ">"

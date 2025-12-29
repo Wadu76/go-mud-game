@@ -8,10 +8,13 @@ using UnityEngine.UI;
 
 public class NetworkManager : MonoBehaviour
 {
-    [Header("UI 组件拖到这里")]
+    [Header("UI组件")]
     public TMP_Text logText;        //显示日志的大屏幕
     public TMP_InputField inputField; //;输入框
     public Button sendButton;       //发送按钮
+
+    [Header("血条组件")]
+    public Slider hpSlider;      //用于控制血条增减
 
     [Header("服务器配置")]
     public string serverIP = "127.0.0.1"; //本地 IP
@@ -116,17 +119,55 @@ public class NetworkManager : MonoBehaviour
         {
             if (!string.IsNullOrEmpty(messageBuffer))
             {
-                logText.text += messageBuffer; //追加到大屏幕
-                messageBuffer = ""; //清空缓存
+                string rawMsg = messageBuffer;
 
-                //自动滚动到底部 (如果用了 ScrollView 需要这行，现在不需要)
+                //检查是否有|CMD
+                if (rawMsg.Contains("|CMD:"))
+                {
+                    //按照|切割
+                    string[] parts = rawMsg.Split('|');
+                    if (parts.Length >= 2)
+                    {
+                        string chatPart = parts[0];
+                        //Trim去除换行符号，以防万一
+                        string cmdPart = parts[1].Trim();
+
+
+                        if (cmdPart.StartsWith("CMD:HP"))
+                        {
+                            //再按冒号切分指令
+                            string[] data = cmdPart.Split(':');
+                            //ata[0]=CMD, data[1]=HP, data[2]=Name, data[3]=Cur, data[4]=MaxHP
+
+                            if (data.Length >= 5)
+                            {
+                                if (int.TryParse(data[3], out int curHp) && int.TryParse(data[4], out int maxHp))
+                                {
+                                    UpdateHPBar(curHp, maxHp);
+                                }
+                            }
+                        }
+
+
+                        // logText.text += messageBuffer; //追加到大屏幕
+                        logText.text += chatPart + "\n";
+                        //messageBuffer = ""; //清空缓存
+                    }
+                    //自动滚动到底部 (如果用了 ScrollView 需要这行，现在不需要)
+                }
+                else
+                {
+                    logText.text += rawMsg;
+                }
+
+                messageBuffer = "";
             }
-        }
 
-        //允许按回车发送
-        if (Input.GetKeyDown(KeyCode.Return))
-        {
-            OnSendButtonClicked();
+            //允许按回车发送
+            if (Input.GetKeyDown(KeyCode.Return))
+            {
+                OnSendButtonClicked();
+            }
         }
     }
 
@@ -158,4 +199,17 @@ public class NetworkManager : MonoBehaviour
         if (stream != null) stream.Close();
         if (client != null) client.Close();
     }
+
+
+    //辅助函数：更新血条
+    void UpdateHPBar(int current, int max)
+    {
+        if (hpSlider != null)
+        {
+            hpSlider.maxValue = max;
+            hpSlider.value = current;
+        }
+    }
 }
+
+   
