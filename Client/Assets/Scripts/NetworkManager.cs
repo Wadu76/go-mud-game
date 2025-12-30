@@ -1,31 +1,40 @@
 using System;
+using System.Collections; //引入协程需要的命名空间
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
-using TMPro; //引用 TextMeshPro
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
 public class NetworkManager : MonoBehaviour
 {
-    [Header("UI组件")]
-    public TMP_Text logText;        //显示日志的大屏幕
-    public TMP_InputField inputField; //;输入框
-    public Button sendButton;       //发送按钮
+    //暂时只写成 Wadu76，以后可以改为登录时获取
+    private string playerName = "Wadu76";
 
-    [Header("血条组件")]
-    public Slider hpSlider;      //用于控制血条增减
+    [Header("UI 基础组件")]
+    public TMP_Text logText;        //显示日志的大屏幕
+    public TMP_InputField inputField; //输入框
+    public Button sendButton;       //发送按钮
+    public ScrollRect chatScrollRect; //新增：用于控制滚动条自动到底
+
+    [Header("战斗 UI")]
+    public Slider hpSlider;      //血条
+
+    [Header("死亡 UI")]
+    public GameObject deathPanel; // 新增：死亡黑屏面板
+    public Button reviveButton;   //复活按钮
 
     [Header("服务器配置")]
-    public string serverIP = "127.0.0.1"; //本地 IP
-    public int serverPort = 8888;         //Go服务器监听的端口
+    public string serverIP = "127.0.0.1";
+    public int serverPort = 8888;
 
     private TcpClient client;
     private NetworkStream stream;
     private Thread receiveThread;
     private bool isConnected = false;
 
-    //线程安全队列（因为网络线程不能直接改 UI，要存起来让主线程改）
+    //线程安全队列
     private string messageBuffer = "";
     private object lockObj = new object();
 
@@ -33,11 +42,27 @@ public class NetworkManager : MonoBehaviour
     {
         ConnectToServer();
 
-        //绑定按钮点击事件
-        sendButton.onClick.AddListener(OnSendButtonClicked);
+        //绑定发送按钮
+        if (sendButton != null)
+            sendButton.onClick.AddListener(OnSendButtonClicked);
+
+        //新增：绑定复活按钮
+        if (reviveButton != null)
+            reviveButton.onClick.AddListener(OnReviveClicked);
+
+        //确保一开始死亡面板是隐藏的
+        if (deathPanel != null)
+            deathPanel.SetActive(false);
     }
 
-    //连接服务器
+    //点击复活按钮的逻辑
+    void OnReviveClicked()
+    {
+        SendMessageToServer("revive"); //发送复活指令给 Go
+        if (deathPanel != null)
+            deathPanel.SetActive(false); //隐藏黑屏
+    }
+
     void ConnectToServer()
     {
         try
@@ -49,7 +74,6 @@ public class NetworkManager : MonoBehaviour
 
             AddToLog("成功连接到瓦度世界！");
 
-            //开启一个后台线程专门负责听服务器说话
             receiveThread = new Thread(ReceiveData);
             receiveThread.IsBackground = true;
             receiveThread.Start();
@@ -60,20 +84,13 @@ public class NetworkManager : MonoBehaviour
         }
     }
 
-    //发送数据给 Go
     public void SendMessageToServer(string msg)
     {
         if (!isConnected) return;
-
         try
         {
-            //Go那边是用 strings.TrimSpace 处理的，但最好还是加个换行符 \n 
-            //确保 Go 知道这句话说完了
             byte[] data = Encoding.UTF8.GetBytes(msg + "\n");
             stream.Write(data, 0, data.Length);
-
-            // 顺便把自己的话也显示在屏幕上
-            // AddToLog("我: " + msg); 
         }
         catch (Exception e)
         {
@@ -81,7 +98,6 @@ public class NetworkManager : MonoBehaviour
         }
     }
 
-    //接收数据 (在后台线程跑)
     void ReceiveData()
     {
         byte[] buffer = new byte[1024];
@@ -95,7 +111,6 @@ public class NetworkManager : MonoBehaviour
                     if (bytesRead > 0)
                     {
                         string response = Encoding.UTF8.GetString(buffer, 0, bytesRead);
-                        //把收到的消息存进缓存，等待主线程显示
                         lock (lockObj)
                         {
                             messageBuffer += response;
@@ -111,79 +126,81 @@ public class NetworkManager : MonoBehaviour
         }
     }
 
-    //主循环 (每帧调用，负责更新 UI)
+    //主循环 (每帧调用) Upadte
     void Update()
     {
-        //检查缓存里有没有新消息
         lock (lockObj)
         {
             if (!string.IsNullOrEmpty(messageBuffer))
             {
+                // 处理粘包和多条指令
                 string rawMsg = messageBuffer;
+                string[] parts = rawMsg.Split('|');
 
-                //检查是否有|CMD
-                if (rawMsg.Contains("|CMD:"))
+                // 第一部分通常是聊天内容
+                if (!string.IsNullOrEmpty(parts[0]))
                 {
-                    //按照|切割
-                    string[] parts = rawMsg.Split('|');
-                    if (parts.Length >= 2)
+                    //过滤掉单纯的提示符 "> "，不然太乱
+                    if (parts[0] != "> " && parts[0] != ">")
+                        logText.text += parts[0];
+
+                    //只要有新文字，就自动滚动到底部
+                    StartCoroutine(AutoScrollToBottom());
+                }
+
+                //后续部分是指令
+                for (int i = 1; i < parts.Length; i++)
+                {
+                    string cmdPart = parts[i].Trim();
+
+                    //血条指令
+                    if (cmdPart.StartsWith("CMD:HP"))
                     {
-                        string chatPart = parts[0];
-                        //Trim去除换行符号，以防万一
-                        string cmdPart = parts[1].Trim();
-
-
-                        if (cmdPart.StartsWith("CMD:HP"))
+                        string[] data = cmdPart.Split(':');
+                        //格式: CMD:HP:Name:Cur:Max
+                        if (data.Length >= 5)
                         {
-                            //再按冒号切分指令
-                            string[] data = cmdPart.Split(':');
-                            //ata[0]=CMD, data[1]=HP, data[2]=Name, data[3]=Cur, data[4]=MaxHP
-
-                            if (data.Length >= 5)
+                            string targetName = data[2];
+                            if (int.TryParse(data[3], out int curHp) && int.TryParse(data[4], out int maxHp))
                             {
-                                if (int.TryParse(data[3], out int curHp) && int.TryParse(data[4], out int maxHp))
+                                //只有名字是自己时，才更新左上角的血条
+                                if (targetName == playerName)
                                 {
                                     UpdateHPBar(curHp, maxHp);
                                 }
                             }
                         }
-
-
-                        // logText.text += messageBuffer; //追加到大屏幕
-                        logText.text += chatPart + "\n";
-                        //messageBuffer = ""; //清空缓存
                     }
-                    //自动滚动到底部 (如果用了 ScrollView 需要这行，现在不需要)
-                }
-                else
-                {
-                    logText.text += rawMsg;
+                    //死亡指令
+                    else if (cmdPart.StartsWith("CMD:DEAD"))
+                    {
+                        //收到死亡通知，显示黑屏面板
+                        if (deathPanel != null)
+                            deathPanel.SetActive(true);
+                    }
                 }
 
-                messageBuffer = "";
+                messageBuffer = ""; //清空缓存
             }
+        }
 
-            //允许按回车发送
-            if (Input.GetKeyDown(KeyCode.Return))
-            {
-                OnSendButtonClicked();
-            }
+        if (Input.GetKeyDown(KeyCode.Return))
+        {
+            OnSendButtonClicked();
         }
     }
 
-    //按钮点击处理
     void OnSendButtonClicked()
     {
         string txt = inputField.text;
         if (!string.IsNullOrEmpty(txt))
         {
             SendMessageToServer(txt);
-            inputField.text = ""; //清空输入框
-            inputField.ActivateInputField(); //让光标回到输入框
+            inputField.text = "";
+            inputField.ActivateInputField();
         }
     }
 
-    //辅助函数：把日志加到 buffer
     void AddToLog(string msg)
     {
         lock (lockObj)
@@ -192,24 +209,33 @@ public class NetworkManager : MonoBehaviour
         }
     }
 
-    //游戏关闭时断开连接
+    //修复后的血条逻辑
+    void UpdateHPBar(int current, int max)
+    {
+        if (hpSlider != null)
+        {
+            hpSlider.maxValue = max; //之前这里写错了，必须是 max
+            hpSlider.value = current;
+        }
+    }
+
+    //自动滚动到底部的协程
+    IEnumerator AutoScrollToBottom()
+    {
+        //等待这一帧UI渲染结束
+        yield return new WaitForEndOfFrame();
+
+        if (chatScrollRect != null)
+        {
+            //强制把滚动条拉到最下面 (0 是底部，1 是顶部)
+            chatScrollRect.verticalNormalizedPosition = 0f;
+        }
+    }
+
     void OnApplicationQuit()
     {
         isConnected = false;
         if (stream != null) stream.Close();
         if (client != null) client.Close();
     }
-
-
-    //辅助函数：更新血条
-    void UpdateHPBar(int current, int max)
-    {
-        if (hpSlider != null)
-        {
-            hpSlider.maxValue = max;
-            hpSlider.value = current;
-        }
-    }
 }
-
-   

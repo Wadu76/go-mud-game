@@ -321,7 +321,7 @@ func handleConnection(conn net.Conn) {
 
 			content = strings.TrimSpace(content)
 
-			msg := fmt.Sprintf("[%s]说 %s\n>", hero.Name, content)
+			msg := fmt.Sprintf("[%s]说 %s\n", hero.Name, content)
 			//GlobalWorld.MessageChannel <- msg
 			GlobalWorld.BroadcastToRoom(hero.CurrentRoom, msg)
 			response = ""
@@ -431,11 +431,18 @@ func handleConnection(conn net.Conn) {
 			//那么为了形成一个游戏的闭环，我们就让角色直接在初始出生点复活
 			//考虑要不要丢掉背包里的所有东西，先写个丢掉所有东西的大概逻辑，后面再考虑完善或考虑用不用
 			/* ...此处省略丢掉所有东西的代码
-				可以直接用Drop()函数，遍历整个背包全都丢掉！
-				for _, item := range hero.Inventory {
-					hero.Drop(item.Name)
-					}
+			可以直接用Drop()函数，遍历整个背包全都丢掉！
+			for _, item := range hero.Inventory {
+				hero.Drop(item.Name)
+				}
 			*/
+
+			//数据库中清空背包
+			database.DB.Where("player_name =?", hero.Name).Delete(&game.Item{})
+
+			//内存中清空背包
+			hero.Inventory = []game.Item{}
+			conn.Write([]byte("背包已被清空\n"))
 
 			//复活
 			hero.HP = hero.MaxHP
