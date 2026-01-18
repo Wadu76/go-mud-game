@@ -1,11 +1,20 @@
 package game
 
 import (
+	"encoding/json"
 	"fmt"
 	"mud-server/database"
 )
 
-// 1定义玩家结构体
+// 定义一个发给客户端的结构体
+type ItemDTO struct {
+	Name       string `json:"name"`
+	Desc       string `json:"desc"`
+	Value      int    `json:"value"`
+	IsEquipped bool   `json:"is_Equipped"`
+}
+
+// 定义玩家结构体
 // Capital == Public， else Private
 type Player struct {
 	Name     string `gorm:"primaryKey" json:"name"` //玩家名字
@@ -81,7 +90,7 @@ func (p *Player) TakeDamage(dmg int) string {
 	if p.HP < 0 {
 		p.HP = 0
 	}
-	return fmt.Sprintf("  -> [%s] 受到了 %d 点伤害, 剩余HP %d/%d\n", p.Name, dmg, p.HP, p.MaxHP)
+	return fmt.Sprintf("  -> [%s] 受到了 %d 点伤害, 剩余HP %d/%d\n|CMD:HP:%s:%d:%d", p.Name, dmg, p.HP, p.MaxHP, p.Name, p.HP, p.MaxHP)
 }
 
 func (p *Player) Attack(target Attackable) string {
@@ -364,4 +373,23 @@ func (p *Player) GainExp(amount int) string {
 	database.DB.Save(p)
 
 	return log
+}
+
+// 获取背包数据的协议字符串
+func (p *Player) GetInventoryProtocol() string {
+	var dtos []ItemDTO
+	for _, item := range p.Inventory {
+		dtos = append(dtos, ItemDTO{
+			Name:       item.Name,
+			Desc:       item.Desc,
+			Value:      item.Value,
+			IsEquipped: item.IsEquipped,
+		})
+	}
+
+	//转为json
+	//此处_表示忽略返回值 err
+	jsonData, _ := json.Marshal(dtos)
+	//拼凑协议头 |CMD:INC:json
+	return "|CMD:INC:" + string(jsonData)
 }

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json" //json解析库
 	"fmt"
 	"net"
 	"strings"
@@ -37,11 +38,23 @@ type model struct {
 	//玩家血量状态
 	hp    int
 	maxHp int
+
+	//背包相关组件
+	showInventory bool   //是否在显示背包
+	inventory     []Item //背包里的东西
 }
 
 // 定义两个消息
 type errMsg error     //错误消息
 type serverMsg string //服务器发来的消息
+
+// 定义跟服务器一样的结构体用来接收数据
+type Item struct {
+	Name       string `json:"name"`
+	Desc       string `json:"desc"`
+	Value      int    `json:"value"`
+	IsEquipped bool   `json:"is_Equipped"`
+}
 
 // Init 初始化上述结构体中的内容
 func initalModel() model {
@@ -66,6 +79,9 @@ func initalModel() model {
 
 		hp:    100,
 		maxHp: 100,
+
+		showInventory: false,
+		inventory:     []Item{},
 	}
 }
 
@@ -116,6 +132,22 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		//拿到初始消息
 		fullText := string(msg)
 
+		//拦截背包的数据
+		if strings.Contains(fullText, "|CMD:INC:") {
+			parts := strings.Split(fullText, "|CMD:INC:")
+			if len(parts) > 1 {
+				jsonStr := parts[1]
+				//解析json到m.inventory
+				var items []Item
+				err := json.Unmarshal([]byte(jsonStr), &items)
+				if err == nil {
+					m.inventory = items
+					m.showInventory = true //显示背包，因为背包数据已经更新
+				}
+			}
+			return m, waitForServerMsg(m.conn)
+		}
+
 		//检查小溪里是否含有 |CMD:HP
 		if strings.Contains(fullText, "|CMD:HP") {
 			//用 | 切割，把文本和命令分开
@@ -158,10 +190,21 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	//键盘输入，回车
 	case tea.KeyMsg:
-		switch msg.Type {
+		//背包操作逻辑
+		if m.showInventory {
+			switch msg.String() {
+			//esc q 或者再按次i关闭背包
+			case "esc", "q", "i":
+				m.showInventory = false
+				return m, nil
+			}
+			//如果打开了背包就拦截所有输入
+			return m, nil
+		}
 
-		//Ctrl+C退出or ESC
-		case tea.KeyCtrlC, tea.KeyEsc:
+		switch msg.Type {
+		//Ctrl+C退出
+		case tea.KeyCtrlC:
 			if m.conn != nil {
 				m.conn.Close()
 			}
@@ -173,7 +216,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			inputMsg := m.textInput.Value()
 			//发送给服务器
 			if m.conn != nil && inputMsg != "" {
-				fmt.Fprintf(m.conn, inputMsg+"\n")
+				fmt.Fprintln(m.conn, inputMsg)
 
 				//自己发的也追加到历史记录
 				//自己发的部分用灰色
@@ -186,6 +229,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			//清空输入框
 			m.textInput.Reset()
 		}
+
+		//
+		if msg.String() == "i" && m.textInput.Focused() {
+
+		}
+
 	//发生错误
 	case errMsg:
 		m.err = msg
@@ -201,6 +250,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 // view 渲染 相当于unity的OnGUI 写了才能返回model
+// 此处也是背包可视化主要逻辑所在之处
 func (m model) View() string {
 	if !m.ready {
 		return "\n 正在初始化界面..."
@@ -215,8 +265,24 @@ func (m model) View() string {
 		percent = 0
 	} //防止血条为负
 
+	if percent > 1 {
+		percent = 1
+	} //防止报表
+
 	//血条宽度20
-	barWidth := 20
+	//让血条宽度动态适应屏幕，预留20字给文字
+	availableWidth := m.viewport.Width - 20
+	maxBarWidth := 50
+	//取二者较小
+	barWidth := availableWidth
+	if barWidth > maxBarWidth {
+		barWidth = maxBarWidth
+	}
+
+	if barWidth < 10 {
+		barWidth = 10
+	} //最小宽度10
+
 	//filled即当前血量
 	filledCount := int(percent * float64(barWidth))
 
@@ -227,15 +293,62 @@ func (m model) View() string {
 
 	hpBar := fmt.Sprintf("HP: [%s%s] %d/%d", filled, empty, m.hp, m.maxHp)
 
-	//渲染底部输入栏
-	footer := fmt.Sprintf("%s\n%s",
-		styleInfo.Render(strings.Repeat("-", m.viewport.Width)),
-		hpBar, //血条
-		m.textInput.View(),
-	) //输入框的提示
+	//渲染底部输入栏 横线 + 血条 + 输入框
+	//使用lipgloss.JoinVertical 安全地垂直拼接，避免EXTRA string报错
+	footer := lipgloss.JoinVertical(lipgloss.Left,
+		styleInfo.Render(strings.Repeat("─", m.viewport.Width)), //分割线
+		hpBar,              //血条
+		m.textInput.View(), //输入框
+	)
+
+	gameView := lipgloss.JoinVertical(lipgloss.Left,
+		header,
+		m.viewport.View(),
+		footer,
+	)
+	//如果没打开背包，直接返回正常界面
+	if !m.showInventory {
+		return gameView
+	}
+
+	//绘制背包界面 (覆盖在上面)
+	//我们可以简单拼接字符串，也可以用 lipgloss 做个框
+
+	tableContent := ""
+	if len(m.inventory) == 0 {
+		tableContent = "你的背包空空如也..."
+	} else {
+		//表头
+		tableContent += fmt.Sprintf("%-10s %-5s %-20s\n", "名称", "攻击", "描述")
+		tableContent += strings.Repeat("-", 40) + "\n"
+
+		for _, item := range m.inventory {
+			mark := "  "
+			if item.IsEquipped {
+				mark = "E " //装备标记
+			}
+			//简单的格式化对齐
+			tableContent += fmt.Sprintf("%s%-10s %-5d %-20s\n", mark, item.Name, item.Value, item.Desc)
+		}
+	}
+
+	//给表格加个边框
+	inventoryWindow := lipgloss.NewStyle().
+		Border(lipgloss.DoubleBorder()).
+		BorderForeground(lipgloss.Color("#FFFF00")). //黄色边框
+		Padding(1, 2).
+		Render(tableContent)
 
 	//头 + 视窗 + 尾
-	return fmt.Sprintf("%s\n%s\n%s", header, m.viewport.View(), footer)
+	//return fmt.Sprintf("%s\n%s\n%s", header, m.viewport.View(), footer)
+	//返回背包界面，居中显示
+	return lipgloss.JoinVertical(lipgloss.Center,
+		header,
+		"\n\n",
+		lipgloss.NewStyle().Bold(true).Render("===  你的背包 (按ESC关闭) ==="),
+		inventoryWindow,
+		"\n(输入被暂时锁定)",
+	)
 }
 
 func connectToServer() tea.Msg {

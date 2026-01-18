@@ -128,6 +128,10 @@ func handleConnection(conn net.Conn) {
 			hero = loadedHero
 			//conn.Write([]byte("登陆成功！欢迎回来,%s \n", hero.Name))
 			conn.Write([]byte(fmt.Sprintf("登录成功！欢迎回来，%s (Lv.%d)\n", hero.Name, hero.Level)))
+
+			//这一行代码会发给客户端，客户端拦截后会初始化底部的血条。刚进入游戏的玩家就能根据自己当前血量显示血条了
+			conn.Write([]byte(fmt.Sprintf("|CMD:HP:%s:%d:%d", hero.Name, hero.HP, hero.MaxHP)))
+
 			break
 			//登陆成功就可以跳出循环了，这一循环就是为了保障玩家账户安全
 		} else {
@@ -361,7 +365,11 @@ func handleConnection(conn net.Conn) {
 			//其实不需要，因为已经处理了空房间的情况，但为方便阅读就这样写了
 
 		case "inventory":
-			response = hero.ListInventory()
+			//response = hero.ListInventory()
+			invMsg := hero.GetInventoryProtocol()
+			conn.Write([]byte(invMsg))
+			continue
+			//直接跳过最后的conn.Write([]byte(response)),因为已经发送了协议
 
 		//pick itemName
 		case "pick":

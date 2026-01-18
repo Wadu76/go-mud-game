@@ -35,7 +35,7 @@ func (m *Monster) TakeDamage(dmg int) string {
 	}
 	//Unity检测到|符号后九八后面截取下来用作更新血条的数据，目前不弄json，unity中过于复杂
 	//先让程序跑起来再polish
-	return fmt.Sprintf(" ->怪物 [%s] 受到 %d 点伤害 \n|CMD:HP:%s:%d:%d", m.Name, dmg, m.Name, m.HP, m.MaxHP)
+	return fmt.Sprintf(" ->怪物 [%s] 受到 %d 点伤害 \n", m.Name, dmg)
 
 }
 
