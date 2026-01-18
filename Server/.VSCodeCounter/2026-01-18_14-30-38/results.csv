@@ -1,0 +1,22 @@
+"filename", "language", "Go Checksum File", "Go", "Go Module File", "Markdown", "JSON", "YAML", "Docker", "comment", "blank", "total"
+"c:\Users\Wadu76\Desktop\Current_Term\Project101\WaduWorld\Server\Dockerfile", "Docker", 0, 0, 0, 0, 0, 0, 13, 19, 11, 43
+"c:\Users\Wadu76\Desktop\Current_Term\Project101\WaduWorld\Server\client\client.go", "Go", 0, 37, 0, 0, 0, 0, 0, 4, 10, 51
+"c:\Users\Wadu76\Desktop\Current_Term\Project101\WaduWorld\Server\cmd\client\main.go", "Go", 0, 138, 0, 0, 0, 0, 0, 48, 40, 226
+"c:\Users\Wadu76\Desktop\Current_Term\Project101\WaduWorld\Server\cmd\server\main.go", "Go", 0, 5, 0, 0, 0, 0, 0, 1, 2, 8
+"c:\Users\Wadu76\Desktop\Current_Term\Project101\WaduWorld\Server\database\db.go", "Go", 0, 31, 0, 0, 0, 0, 0, 10, 9, 50
+"c:\Users\Wadu76\Desktop\Current_Term\Project101\WaduWorld\Server\docker-compose.yml", "YAML", 0, 0, 0, 0, 0, 24, 0, 2, 2, 28
+"c:\Users\Wadu76\Desktop\Current_Term\Project101\WaduWorld\Server\game\item.go", "Go", 0, 25, 0, 0, 0, 0, 0, 12, 12, 49
+"c:\Users\Wadu76\Desktop\Current_Term\Project101\WaduWorld\Server\game\loader.go", "Go", 0, 40, 0, 0, 0, 0, 0, 13, 10, 63
+"c:\Users\Wadu76\Desktop\Current_Term\Project101\WaduWorld\Server\game\monster.go", "Go", 0, 40, 0, 0, 0, 0, 0, 9, 13, 62
+"c:\Users\Wadu76\Desktop\Current_Term\Project101\WaduWorld\Server\game\player.go", "Go", 0, 212, 0, 0, 0, 0, 0, 88, 68, 368
+"c:\Users\Wadu76\Desktop\Current_Term\Project101\WaduWorld\Server\game\protocol.go", "Go", 0, 10, 0, 0, 0, 0, 0, 8, 4, 22
+"c:\Users\Wadu76\Desktop\Current_Term\Project101\WaduWorld\Server\game\room.go", "Go", 0, 49, 0, 0, 0, 0, 0, 11, 14, 74
+"c:\Users\Wadu76\Desktop\Current_Term\Project101\WaduWorld\Server\game\type.go", "Go", 0, 5, 0, 0, 0, 0, 0, 2, 1, 8
+"c:\Users\Wadu76\Desktop\Current_Term\Project101\WaduWorld\Server\gamedata\monster.json", "JSON", 0, 0, 0, 0, 26, 0, 0, 0, 0, 26
+"c:\Users\Wadu76\Desktop\Current_Term\Project101\WaduWorld\Server\go.mod", "Go Module File", 0, 0, 31, 0, 0, 0, 0, 0, 3, 34
+"c:\Users\Wadu76\Desktop\Current_Term\Project101\WaduWorld\Server\go.sum", "Go Checksum File", 57, 0, 0, 0, 0, 0, 0, 0, 1, 58
+"c:\Users\Wadu76\Desktop\Current_Term\Project101\WaduWorld\Server\network\server.go", "Go", 0, 254, 0, 0, 0, 0, 0, 137, 75, 466
+"c:\Users\Wadu76\Desktop\Current_Term\Project101\WaduWorld\Server\network\world.go", "Go", 0, 85, 0, 0, 0, 0, 0, 42, 32, 159
+"c:\Users\Wadu76\Desktop\Current_Term\Project101\WaduWorld\Server\注解\db.md", "Markdown", 0, 0, 0, 7, 0, 0, 0, 0, 1, 8
+"c:\Users\Wadu76\Desktop\Current_Term\Project101\WaduWorld\Server\注解\docker命令备注.md", "Markdown", 0, 0, 0, 14, 0, 0, 0, 0, 8, 22
+"Total", "-", 57, 931, 31, 21, 26, 24, 13, 406, 316, 1825

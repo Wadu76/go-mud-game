@@ -34,7 +34,9 @@ type model struct {
 	historyContent string //聊天记录
 	ready          bool   //是否准备就绪 用于处理窗口初始化
 
-	
+	//玩家血量状态
+	hp    int
+	maxHp int
 }
 
 // 定义两个消息
@@ -61,6 +63,9 @@ func initalModel() model {
 		//viewport:  vp,
 		historyContent: "正在连接瓦度世界...\n", //初始日志
 		err:            nil,
+
+		hp:    100,
+		maxHp: 100,
 	}
 }
 
@@ -108,13 +113,37 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	//收到了服务器的消息
 	case serverMsg:
+		//拿到初始消息
+		fullText := string(msg)
 
-		//新消息收录到历史记录中
-		newText := string(msg)
+		//检查小溪里是否含有 |CMD:HP
+		if strings.Contains(fullText, "|CMD:HP") {
+			//用 | 切割，把文本和命令分开
+			//格式 |CMD:HP:Name:CurrentHP:MaxHP
+			parts := strings.Split(fullText, "|CMD:HP")
+
+			//parts[0]是正常聊天文本
+			//parts[1]是命令
+			if len(parts) > 1 {
+				//保留文本
+				fullText = parts[0]
+
+				//解析数值 处理parts[1]中的命令
+				//去掉开头的冒号
+				params := strings.Split(strings.TrimPrefix(parts[1], ":"), ":")
+
+				if len(params) >= 3 {
+					fmt.Sscanf(params[1], "%d", &m.hp)
+					fmt.Sscanf(params[2], "%d", &m.maxHp)
+				}
+			}
+		}
+		//新消息已经收录到历史记录中了 fulltext中
+		//newText := string(msg)
 
 		//服务器消息为青色
 		//render 函数将文本渲染为带颜色的字符串
-		styledText := lipgloss.NewStyle().Foreground(lipgloss.Color("86")).Render(newText)
+		styledText := lipgloss.NewStyle().Foreground(lipgloss.Color("86")).Render(fullText)
 
 		m.historyContent += styledText
 
@@ -180,9 +209,28 @@ func (m model) View() string {
 	//渲染标题栏
 	header := styleTitle.Render("Wadu MUD Client")
 
+	//血条，按百分比来
+	percent := float64(m.hp) / float64(m.maxHp)
+	if percent < 0 {
+		percent = 0
+	} //防止血条为负
+
+	//血条宽度20
+	barWidth := 20
+	//filled即当前血量
+	filledCount := int(percent * float64(barWidth))
+
+	//红色代表血
+	filled := lipgloss.NewStyle().Foreground(lipgloss.Color("#FF0000")).Render(strings.Repeat("█", filledCount))
+	//灰色代表空血
+	empty := lipgloss.NewStyle().Foreground(lipgloss.Color("#808080")).Render(strings.Repeat("░", barWidth-filledCount))
+
+	hpBar := fmt.Sprintf("HP: [%s%s] %d/%d", filled, empty, m.hp, m.maxHp)
+
 	//渲染底部输入栏
 	footer := fmt.Sprintf("%s\n%s",
 		styleInfo.Render(strings.Repeat("-", m.viewport.Width)),
+		hpBar, //血条
 		m.textInput.View(),
 	) //输入框的提示
 
