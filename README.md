@@ -74,11 +74,22 @@ go run cmd/client/main.go
 
 ### 3. 游戏指令
 
+* `register <name> <pwd>`: 注册
 * `login <name> <pwd>`: 登录
 * `attack`: 攻击当前房间的怪物
-* `inventory`: 打开可视化背包 (按 I 键)
+* `status`: 查看自己与boss的状态
+* `say <内容>`: 在当前房间广播内容
+* `inventory`: 打开可视化背包
 * `look`: 查看周围环境
+* `heal`: 治疗自己
+* `pick <地上的物品名>`: 捡起地上的物品
+* `drop <身上的物品名>`: 丢下身上的物品
+*  `equip <装备名>`: 装上装备
+*  `unequip <装备名>`: 卸下装备
+* `talk <NPC名称> <想说的话>`: 与NPC对话
 * `go north/south/east/west`: 移动
+* `save`: 保存游戏（当然退出的时候也会自动保存）
+* `exit`: 退出游戏
 
 ## 目录结构
 
