@@ -3,6 +3,7 @@ package network
 import (
 	//"bufio"
 	"fmt"
+	"mud-server/ai"
 	"mud-server/database"
 	"mud-server/game"
 	"net"
@@ -418,6 +419,45 @@ func handleConnection(conn net.Conn) {
 			ok, msg := hero.Unequip(itemName)
 			response = msg + "\n"
 			if ok {
+			}
+
+			// 请把这段代码加到 switch cmd { ... } 里面
+
+		case "talk":
+			//指令格式: talk 守卫 你好啊
+			if len(parts) < 3 {
+				conn.Write([]byte("格式错误，请使用: talk <NPC名字> <想说的话>\n"))
+				continue
+			}
+
+			targetName := parts[1]
+			//把剩下的部分拼起来作为对话内容
+			content := strings.Join(parts[2:], " ")
+
+			//简单的 NPC 查找逻辑 (为了演示，我们硬编码一个守卫)
+			//实际项目中这里会去 Room 里查找有没有这个NPC
+			if targetName == "守卫" || targetName == "guard" {
+				conn.Write([]byte(fmt.Sprintf("你对 [守卫] 说: %s\n", content)))
+
+				//先给玩家一个反馈，让他知道 AI 正在思考
+				conn.Write([]byte("Wait [守卫] 正在打量你...\n"))
+
+				//开启协程异步请求AI
+				//这样主线程不会被阻塞，其他玩家完全感觉不到卡顿
+				go func(c net.Conn, playerMsg string) {
+					//定义守卫的人设 (Persona)
+					persona := "你是一个身经百战的皇家守卫，负责看守新手村大门。你性格傲慢，看不起衣衫褴褛的新手，说话喜欢带刺，但职责所在会回答关于怪物的问题。"
+
+					//请求Kimi
+					reply := ai.AskNPC("守卫", persona, playerMsg)
+
+					//拿到结果，推发给客户端
+					//注意格式：加个换行和颜色让它显眼一点
+					c.Write([]byte(fmt.Sprintf("\n[守卫] 居然回复了: %s\n> ", reply)))
+				}(conn, content)
+
+			} else {
+				conn.Write([]byte("这里没有这个人。\n"))
 			}
 
 		case "save":

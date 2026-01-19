@@ -314,7 +314,7 @@ func (m model) View() string {
 
 	//提示指令功能
 	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("241")).Italic(true)
-	helpText := " 指令: attack, heal, look, go <方向>, inventory, pick <物品>, equip <物品>"
+	helpText := " 指令: attack, heal, look, go <方向>, inventory, pick <物品>, equip <物品>, talk <NPC名字> 想说的话(目前只有守卫)"
 
 	//渲染底部输入栏 横线 + 血条 + 输入框
 	//使用lipgloss.JoinVertical 安全地垂直拼接，避免EXTRA string报错
