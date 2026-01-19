@@ -89,14 +89,15 @@ func (p *Player) TakeDamage(dmg int) string {
 	p.HP -= dmg
 	if p.HP < 0 {
 		p.HP = 0
+		return fmt.Sprintf("-> [%s] 遭受了致命一击！\n|CMD:DIE|CMD:HP:%s:%d:%d", p.Name, p.Name, p.HP, p.MaxHP)
 	}
-	return fmt.Sprintf("  -> [%s] 受到了 %d 点伤害, 剩余HP %d/%d\n|CMD:HP:%s:%d:%d", p.Name, dmg, p.HP, p.MaxHP, p.Name, p.HP, p.MaxHP)
+	return fmt.Sprintf("-> [%s] 受到了 %d 点伤害, 剩余HP %d/%d\n|CMD:HP:%s:%d:%d", p.Name, dmg, p.HP, p.MaxHP, p.Name, p.HP, p.MaxHP)
 }
 
 func (p *Player) Attack(target Attackable) string {
 	//damage := 10 //假设每次攻击造成10点伤害(暂时) 我们已经有我们的数值计算函数了！
 	damage := p.GetAttackPower()
-	log1 := fmt.Sprintf(" 🗡 [%s] 攻击了 [%s]!\n", p.Name, target.GetName())
+	log1 := fmt.Sprintf("🗡 [%s] 攻击了 [%s]!\n", p.Name, target.GetName())
 
 	log2 := target.TakeDamage(damage)
 	return log1 + "\n" + log2
