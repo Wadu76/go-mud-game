@@ -48,3 +48,14 @@ Server/mud_server
 .vscode/
 *.DS_Store
 Thumbs.db
+
+# 忽略数据库数据 (关键！)
+mysql_data/
+
+# 忽略编译出来的 exe
+*.exe
+mud_server
+
+# 忽略 IDE 配置
+.vscode/
+.idea/

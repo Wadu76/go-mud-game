@@ -18,7 +18,7 @@ COPY . .
 
 # 3. 编译 Go 程序
 #-o mud_server 指定输出文件名为 mud_server
-RUN CGO_ENABLED=0 GOOS=linux go build -o mud_server main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -o mud_server cmd/server/main.go
 
 
 #第二阶段：运行阶段 (Runner)

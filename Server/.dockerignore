@@ -1,0 +1,13 @@
+# .dockerignore
+# 忽略数据库数据目录 (关键！修复 mysql.sock 报错)
+mysql_data/
+
+# 忽略 git 版本控制文件
+.git/
+
+# 忽略本地编译出来的二进制文件
+mud_server
+mud_server.exe
+
+# 忽略 VSCode 配置
+.vscode/
