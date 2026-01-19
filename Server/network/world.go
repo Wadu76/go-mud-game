@@ -80,6 +80,21 @@ func InitWorld() {
 
 		AllRooms: tempRooms,
 	}
+	//创建一把像样的剑
+	superSword := game.NewItem("屠龙", "点击就送，一刀999", game.ItemTypeWeapon, 999)
+	superSword.RoomName = town.Name //放在新手村
+	database.DB.Create(superSword)
+
+	//创建一瓶药水
+	potion := game.NewItem("生命药水", "这是假的，喝了也不会回血", game.ItemTypeGeneral, 0)
+	potion.RoomName = town.Name
+	database.DB.Create(potion)
+
+	//创建一个垃圾
+	trash := game.NewItem("Wadu的头发", "或许...?非常稀有?", game.ItemTypeGeneral, 0)
+	trash.RoomName = town.Name
+	database.DB.Create(trash)
+
 	//cesh
 	//town.Items["tword"] = game.NewItem("tword", "test") 剑只在内存里，没有数据库ID，所以不能这样写
 	loadWorldItems() //加载世界物品

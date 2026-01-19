@@ -42,6 +42,9 @@ type model struct {
 	//背包相关组件
 	showInventory bool   //是否在显示背包
 	inventory     []Item //背包里的东西
+
+	//判断死亡组件，用于复活
+	isDead bool //是否死亡
 }
 
 // 定义两个消息
@@ -63,17 +66,13 @@ func initalModel() model {
 	ti.Placeholder = "在此输入指令"
 	ti.Focus()         //光标默认
 	ti.CharLimit = 156 //限制输入长度
-	ti.Width = 20      //设置输入框宽度
+	ti.Width = 30      //设置输入框宽度 (稍微宽一点)
 
 	//初始化视窗 viewport vp
-	//vp := viewport.New(80, 20) //视窗大小，宽带80 高度20
-	//vp.SetContent("正在连接瓦度世界...\n")
 	//此处先不初始化，等程序检测屏幕大小再初始化（update中）
-	//这样就可以避免输出过长导致无法输出完一整行
 
 	return model{
-		textInput: ti,
-		//viewport:  vp,
+		textInput:      ti,
 		historyContent: "正在连接瓦度世界...\n", //初始日志
 		err:            nil,
 
@@ -103,18 +102,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	//窗口大小变化，刚打开程序的时候也有一次
 	case tea.WindowSizeMsg:
 		headerHeight := 2 //标题栏高度
-		footerHeight := 2 //输入框高度
+		footerHeight := 3 //输入框高度 (留点空间给Help)
 		verticalMarginHeight := headerHeight + footerHeight
 
 		if !m.ready {
 			//这是第一次检测到窗口大小，即第一次打开程序，ready为false
-			//第一次检测到窗口大小的时候，初始化视窗
-			//宽度 = 窗口宽度
-			//高度 = 窗口高度 - 上下边距
 			m.viewport = viewport.New(msg.Width, msg.Height-verticalMarginHeight)
 			m.viewport.YPosition = headerHeight     //从标题下面开始画
 			m.viewport.SetContent(m.historyContent) //填入历史记录
-			m.ready = true                          //第一次检测完毕，后续就不是了，因此设为true
+			m.ready = true                          //第一次检测完毕
 		} else {
 			//窗口变换后就动态调整大小
 			m.viewport.Width = msg.Width
@@ -137,68 +133,77 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			parts := strings.Split(fullText, "|CMD:INC:")
 			if len(parts) > 1 {
 				jsonStr := parts[1]
-				//解析json到m.inventory
 				var items []Item
 				err := json.Unmarshal([]byte(jsonStr), &items)
 				if err == nil {
 					m.inventory = items
-					m.showInventory = true //显示背包，因为背包数据已经更新
+					m.showInventory = true
 				}
 			}
 			return m, waitForServerMsg(m.conn)
 		}
 
-		//检查小溪里是否含有 |CMD:HP
+		//拦截死亡
+		if strings.Contains(fullText, "|CMD:DIE") {
+			m.isDead = true
+			fullText = strings.ReplaceAll(fullText, "|CMD:DIE", "")
+		}
+		//拦截HP数据
 		if strings.Contains(fullText, "|CMD:HP") {
-			//用 | 切割，把文本和命令分开
-			//格式 |CMD:HP:Name:CurrentHP:MaxHP
 			parts := strings.Split(fullText, "|CMD:HP")
-
-			//parts[0]是正常聊天文本
-			//parts[1]是命令
 			if len(parts) > 1 {
-				//保留文本
-				fullText = parts[0]
-
-				//解析数值 处理parts[1]中的命令
-				//去掉开头的冒号
+				fullText = parts[0] //保留文本
+				//解析数值
 				params := strings.Split(strings.TrimPrefix(parts[1], ":"), ":")
-
 				if len(params) >= 3 {
 					fmt.Sscanf(params[1], "%d", &m.hp)
 					fmt.Sscanf(params[2], "%d", &m.maxHp)
 				}
 			}
 		}
-		//新消息已经收录到历史记录中了 fulltext中
-		//newText := string(msg)
 
-		//服务器消息为青色
-		//render 函数将文本渲染为带颜色的字符串
-		styledText := lipgloss.NewStyle().Foreground(lipgloss.Color("86")).Render(fullText)
+		// --- [修正] 暴力清洗文本，解决青色字乱飘问题 ---
+		// 1. 兼容不同系统的换行
+		fullText = strings.ReplaceAll(fullText, "\r\n", "\n")
+		// 2. 暴力删除所有 ">" 提示符 (不论有没有空格)
+		fullText = strings.ReplaceAll(fullText, "> ", "")
+		fullText = strings.ReplaceAll(fullText, ">", "")
+		// 3. 去除首尾空白，防止空行太多
+		fullText = strings.TrimSpace(fullText)
 
-		m.historyContent += styledText
+		//如果洗完之后还有内容，才显示
+		if fullText != "" {
+			// [修正] 强制加换行 "\n"，保证每条消息独占一行！
+			styledText := lipgloss.NewStyle().
+				Foreground(lipgloss.Color("86")). //青色
+				Render(fullText + "\n")           //简单粗暴加换行
 
-		//把更新后的记录塞给视窗
-		m.viewport.SetContent(m.historyContent)
-
-		//自动滚到底部
-		m.viewport.GotoBottom()
-
+			//把新消息加到历史记录中
+			m.historyContent += styledText
+			//把更新后的记录塞给视窗
+			m.viewport.SetContent(m.historyContent)
+			//自动滚到底部
+			m.viewport.GotoBottom()
+		}
 		//听完一句继续监听下一句
 		return m, waitForServerMsg(m.conn)
 
 	//键盘输入，回车
 	case tea.KeyMsg:
 		//背包操作逻辑
-		if m.showInventory {
+		if m.showInventory || m.isDead {
 			switch msg.String() {
-			//esc q 或者再按次i关闭背包
-			case "esc", "q", "i":
-				m.showInventory = false
+			//esc q 或者再按次i关闭背包 允许回车复活
+			case "esc", "q", "i", "enter":
+				if m.isDead && msg.Type == tea.KeyEnter {
+					m.isDead = false //复活
+				}
+				// 只有没死的时候才能关背包
+				if !m.isDead {
+					m.showInventory = false
+				}
 				return m, nil
 			}
-			//如果打开了背包就拦截所有输入
 			return m, nil
 		}
 
@@ -218,14 +223,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.conn != nil && inputMsg != "" {
 				fmt.Fprintln(m.conn, inputMsg)
 
-				//自己发的也追加到历史记录
-				//自己发的部分用灰色
-				//userlog := lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render("> " + inputMsg + "\n")
-				//此处修改为用户输入灰色字不对齐情况
+				// [修正] 解决灰色字不对齐
+				// 不用 Align，直接在前面加 "\n" 强制换行，把灰色字顶到下一行去
 				userMsg := lipgloss.NewStyle().
 					Foreground(lipgloss.Color("240")).
-					Align(lipgloss.Left). //强制左对齐
-					Render(fmt.Sprintf("> %s\n", inputMsg))
+					Render("\n> " + inputMsg + "\n")
+
 				m.historyContent += userMsg
 				m.viewport.SetContent(m.historyContent)
 				m.viewport.GotoBottom()
@@ -233,11 +236,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			//清空输入框
 			m.textInput.Reset()
-		}
-
-		//
-		if msg.String() == "i" && m.textInput.Focused() {
-
 		}
 
 	//发生错误
@@ -257,6 +255,23 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // view 渲染 相当于unity的OnGUI 写了才能返回model
 // 此处也是背包可视化主要逻辑所在之处
 func (m model) View() string {
+	//死亡弹窗，优先级最高
+	if m.isDead {
+		deadTitle := lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color("#FFFFFF")).
+			Background(lipgloss.Color("#FF0000")). // 红底白字
+			Padding(1, 4).
+			Render("💀  胜败乃兵家常事  💀")
+
+		deadSubtitle := lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render("按 Enter 复活并回城")
+
+		// 居中显示
+		return lipgloss.Place(m.viewport.Width, m.viewport.Height,
+			lipgloss.Center, lipgloss.Center,
+			lipgloss.JoinVertical(lipgloss.Center, deadTitle, "\n", deadSubtitle),
+		)
+	}
 	if !m.ready {
 		return "\n 正在初始化界面..."
 	}
@@ -274,8 +289,7 @@ func (m model) View() string {
 		percent = 1
 	} //防止报表
 
-	//血条宽度20
-	//让血条宽度动态适应屏幕，预留20字给文字
+	//血条宽度
 	availableWidth := m.viewport.Width - 20
 	maxBarWidth := 50
 	//取二者较小
@@ -298,12 +312,17 @@ func (m model) View() string {
 
 	hpBar := fmt.Sprintf("HP: [%s%s] %d/%d", filled, empty, m.hp, m.maxHp)
 
+	//提示指令功能
+	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("241")).Italic(true)
+	helpText := " 指令: attack, heal, look, go <方向>, inventory, pick <物品>, equip <物品>"
+
 	//渲染底部输入栏 横线 + 血条 + 输入框
 	//使用lipgloss.JoinVertical 安全地垂直拼接，避免EXTRA string报错
 	footer := lipgloss.JoinVertical(lipgloss.Left,
-		styleInfo.Render(strings.Repeat("─", m.viewport.Width)), //分割线
-		hpBar,              //血条
-		m.textInput.View(), //输入框
+		styleInfo.Render(strings.Repeat("─", m.viewport.Width)), // 分割线
+		hpBar,                      // 血条
+		helpStyle.Render(helpText), // [新增] 帮助提示插在这里
+		m.textInput.View(),         // 输入框
 	)
 
 	gameView := lipgloss.JoinVertical(lipgloss.Left,
@@ -338,7 +357,7 @@ func (m model) View() string {
 	//制作列表内容
 	var rows []string
 	if len(m.inventory) == 0 {
-		rows = append(rows, "	(背包空空如也...)")
+		rows = append(rows, "   (背包空空如也...)")
 	} else {
 		for _, item := range m.inventory {
 			//处理名字，装备了的加个 [E] equipped
@@ -373,8 +392,6 @@ func (m model) View() string {
 		))
 	//绘制背包界面 (覆盖在上面)
 
-	//头 + 视窗 + 尾
-	//return fmt.Sprintf("%s\n%s\n%s", header, m.viewport.View(), footer)
 	//返回背包界面，居中显示
 	return lipgloss.JoinVertical(lipgloss.Center,
 		header,
@@ -383,6 +400,7 @@ func (m model) View() string {
 		inventoryWindow,
 		"\n(按 ESC 关闭)",
 	)
+
 }
 
 func connectToServer() tea.Msg {
