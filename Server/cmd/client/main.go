@@ -220,8 +220,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 				//自己发的也追加到历史记录
 				//自己发的部分用灰色
-				userlog := lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render("> " + inputMsg + "\n")
-				m.historyContent += userlog
+				//userlog := lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render("> " + inputMsg + "\n")
+				//此处修改为用户输入灰色字不对齐情况
+				userMsg := lipgloss.NewStyle().
+					Foreground(lipgloss.Color("240")).
+					Align(lipgloss.Left). //强制左对齐
+					Render(fmt.Sprintf("> %s\n", inputMsg))
+				m.historyContent += userMsg
 				m.viewport.SetContent(m.historyContent)
 				m.viewport.GotoBottom()
 			}
@@ -311,33 +316,62 @@ func (m model) View() string {
 		return gameView
 	}
 
-	//绘制背包界面 (覆盖在上面)
-	//我们可以简单拼接字符串，也可以用 lipgloss 做个框
+	//定义列  固定宽度，强制对齐
+	//名字是青色
+	colName := lipgloss.NewStyle().Width(14).Foreground(lipgloss.Color("#00FFFF"))
+	//数值（力量）是红色
+	colVal := lipgloss.NewStyle().Width(8).Align(lipgloss.Right).Foreground(lipgloss.Color("#FF0000"))
+	//描述是灰色
+	colDesc := lipgloss.NewStyle().Width(30).Foreground(lipgloss.Color("#AAAAA"))
 
-	tableContent := ""
+	//表头
+	headerStr := lipgloss.JoinHorizontal(lipgloss.Top,
+		colName.Render("名称"),
+		colVal.Render("攻击"),
+		"  ", //空格
+		colDesc.Render("描述"),
+	)
+
+	//制作分割线
+	divider := lipgloss.NewStyle().Foreground(lipgloss.Color("#44444")).Render(strings.Repeat("-", 56))
+
+	//制作列表内容
+	var rows []string
 	if len(m.inventory) == 0 {
-		tableContent = "你的背包空空如也..."
+		rows = append(rows, "	(背包空空如也...)")
 	} else {
-		//表头
-		tableContent += fmt.Sprintf("%-10s %-5s %-20s\n", "名称", "攻击", "描述")
-		tableContent += strings.Repeat("-", 40) + "\n"
-
 		for _, item := range m.inventory {
-			mark := "  "
+			//处理名字，装备了的加个 [E] equipped
+			nameStr := item.Name
 			if item.IsEquipped {
-				mark = "E " //装备标记
+				nameStr = "[E]" + item.Name
 			}
-			//简单的格式化对齐
-			tableContent += fmt.Sprintf("%s%-10s %-5d %-20s\n", mark, item.Name, item.Value, item.Desc)
+
+			//拼接
+			row := lipgloss.JoinHorizontal(lipgloss.Top,
+				colName.Render(nameStr),                      //第一列名字
+				colVal.Render(fmt.Sprintf("%d", item.Value)), //第二列数值
+				"  ",                      //空格
+				colDesc.Render(item.Desc), //第三列描述
+			)
+			rows = append(rows, row)
 		}
 	}
 
-	//给表格加个边框
+	//拼接所有内容 即整个表格
+	tableBody := lipgloss.JoinVertical(lipgloss.Left, rows...)
+
+	//最终样式
 	inventoryWindow := lipgloss.NewStyle().
-		Border(lipgloss.DoubleBorder()).
-		BorderForeground(lipgloss.Color("#FFFF00")). //黄色边框
-		Padding(1, 2).
-		Render(tableContent)
+		Border(lipgloss.DoubleBorder()).             //双线边框
+		BorderForeground(lipgloss.Color("#F1C40f")). //金色边框
+		Padding(1, 2).                               //内边距
+		Render(lipgloss.JoinVertical(lipgloss.Left,
+			headerStr,
+			divider,
+			tableBody,
+		))
+	//绘制背包界面 (覆盖在上面)
 
 	//头 + 视窗 + 尾
 	//return fmt.Sprintf("%s\n%s\n%s", header, m.viewport.View(), footer)
@@ -345,9 +379,9 @@ func (m model) View() string {
 	return lipgloss.JoinVertical(lipgloss.Center,
 		header,
 		"\n\n",
-		lipgloss.NewStyle().Bold(true).Render("===  你的背包 (按ESC关闭) ==="),
+		lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#F1C40F")).Render("=== 🎒 冒险者背包 ==="),
 		inventoryWindow,
-		"\n(输入被暂时锁定)",
+		"\n(按 ESC 关闭)",
 	)
 }
 

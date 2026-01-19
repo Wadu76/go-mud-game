@@ -1,28 +1,28 @@
 version: '3.8'
 
 services:
-  #服务1:MUD
+  # 游戏服务器
   mud-server:
-    build: .             #这里告诉它：去当前目录找 Dockerfile 构建镜像
+    build: .             # 读取当前目录的 Dockerfile
     container_name: mud_server_app
     ports:
-      - "8888:8888"      #游戏的端口
+      - "8888:8888"      # 暴露游戏端口
     depends_on:
-      - mysql            #告诉 Docker：先启动数据库，再启动我
+      - mysql            # 等数据库启动
     environment:
-      - TZ=Asia/Shanghai #设置时区
-    environment:
-      - DB_ADDR=mysql:3306
-    depends_on:
-      - mysql
+      - TZ=Asia/Shanghai
+      - DB_ADDR=mysql:3306  # 关键：告诉 Go 程序数据库在 "mysql" 这个容器里
+    restart: always
 
-  #服务2:数据库
+  # 数据库
   mysql:
     image: mysql:8.0
     container_name: mysql_db
     ports:
-      - "3307:3306"      #外部依然可以用 3307 连接它方便你查看数据
+      - "3307:3306"      # 宿主机用 3307 连接，容器内部是 3306
     environment:
       MYSQL_ROOT_PASSWORD: "123456"
       MYSQL_DATABASE: "mud_game"
     command: --default-authentication-plugin=mysql_native_password
+    volumes:
+      - ./mysql_data:/var/lib/mysql # 把数据挂载到当前目录，防止丢档
