@@ -12,7 +12,7 @@
 
 | **战斗与死亡系统 (Combat & Death)** | **背包与物品系统 (Inventory GUI)** | **日志系统** |
 |:---:|:---:|:---:|
-| <img src="/images/死亡复活系统.png" width="400" alt="Death Screen"> | <img src="/images/背包系统.png" width="400" alt="Inventory"> | <img src="/images/日志交流.png" width="400" alt="Log System"> |
+| <img src="/Server/images/死亡复活系统.png" width="400" alt="Death Screen"> | <img src="/Server/images/背包系统.png" width="400" alt="Inventory"> | <img src="/Server/images/日志交流.png" width="400" alt="Log System"> |
 | *支持实时战斗日志流与全屏死亡反馈* | *支持表格化渲染与可视化装备管理* | *支持多玩家日志流与日志持久化* |
 
 ## 🛠 技术架构 (Architecture)
